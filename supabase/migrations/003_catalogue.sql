@@ -9,18 +9,18 @@ create table public.product_grades (
 );
 
 create table public.product_units (
-  name text primary key check (name in ('kg', '25kg', 'ton')),
+  name text primary key check (name in ('kg', '25kg', 'ton', 'litres')),
   active boolean not null default true
 );
 
 insert into public.product_categories (name) values
-  ('Grains'), ('Rice'), ('Wheat'), ('Spices'), ('Dry Fruits')
+  ('Dal/ Pulses'), ('Flour/ Atta'), ('Grains'), ('Oils & Ghee'), ('Spices / masalas'), ('Dry fruits')
 on conflict (name) do nothing;
 
 insert into public.product_grades (name) values ('A'), ('B'), ('C')
 on conflict (name) do nothing;
 
-insert into public.product_units (name) values ('kg'), ('25kg'), ('ton')
+insert into public.product_units (name) values ('kg'), ('25kg'), ('ton'), ('litres')
 on conflict (name) do nothing;
 
 create table public.products (

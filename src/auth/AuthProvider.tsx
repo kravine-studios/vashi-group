@@ -19,7 +19,7 @@ const mapAccount = (profile: ProfileRow, business: BusinessProfileRow): AccountP
   address: business.address,
   gstNumber: business.gst_number,
   fssaiNumber: business.fssai_number,
-  shopNumber: business.shop_number,
+  shopNumber: business.shop_number ?? '',
   contactName: business.contact_name,
   contactPhone: business.contact_phone,
   logoPath: business.logo_path,
@@ -195,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           address: input.address,
           gst_number: input.gstNumber,
           fssai_number: input.fssaiNumber,
-          shop_number: input.shopNumber,
+          shop_number: input.shopNumber ?? '',
           contact_name: input.contactName,
           contact_phone: input.contactPhone,
         },
@@ -220,38 +220,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const completeProfile = useCallback(async (input: ProfileCompletionInput) => {
     if (!account) throw new Error('Sign in before completing your profile.');
+    if (!input.accountHolder.trim()) throw new Error('Account holder name is required.');
+    if (!input.branchName.trim()) throw new Error('Branch name is required.');
     if (!supabase) {
       const accountNumber = input.accountNumber.replace(/\s/g, '');
       if (!/^\d{8,20}$/.test(accountNumber)) throw new Error('Account number must contain 8–20 digits.');
       if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(input.ifsc.trim().toUpperCase())) throw new Error('Enter a valid IFSC code.');
+      const logoPath = input.logo ? `${account.id}/${input.logo.name}` : account.logoPath ?? null;
       setAccount(demoSession.completeProfile(
         input.accountHolder,
+        input.branchName,
         accountNumber,
         input.ifsc,
-        `${account.id}/${input.logo.name}`,
+        logoPath,
       ));
       return;
     }
 
     const normalizedAccountNumber = input.accountNumber.replace(/\s/g, '');
-    if (!input.accountHolder.trim()) throw new Error('Bank account holder name is required.');
     if (!/^\d{8,20}$/.test(normalizedAccountNumber)) throw new Error('Account number must contain 8–20 digits.');
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(input.ifsc.trim().toUpperCase())) throw new Error('Enter a valid IFSC code.');
 
-    const fileExtension = input.logo.name.split('.').pop()?.toLowerCase();
-    if (!fileExtension || !['jpg', 'jpeg', 'png', 'webp'].includes(fileExtension)) {
-      throw new Error('Logo must be a JPG, PNG, or WebP image.');
-    }
-    if (input.logo.size > 5 * 1024 * 1024) throw new Error('Logo must be no larger than 5 MB.');
+    let logoPath: string | null = account.logoPath;
+    if (input.logo) {
+      const fileExtension = input.logo.name.split('.').pop()?.toLowerCase();
+      if (!fileExtension || !['jpg', 'jpeg', 'png', 'webp'].includes(fileExtension)) {
+        throw new Error('Logo must be a JPG, PNG, or WebP image.');
+      }
+      if (input.logo.size > 5 * 1024 * 1024) throw new Error('Logo must be no larger than 5 MB.');
 
-    const logoPath = `${account.id}/${crypto.randomUUID()}.${fileExtension}`;
-    const { error: uploadError } = await supabase.storage
-      .from('profile-logos')
-      .upload(logoPath, input.logo, { contentType: input.logo.type, upsert: false });
-    if (uploadError) throw uploadError;
+      logoPath = `${account.id}/${crypto.randomUUID()}.${fileExtension}`;
+      const { error: uploadError } = await supabase.storage
+        .from('profile-logos')
+        .upload(logoPath, input.logo, { contentType: input.logo.type, upsert: false });
+      if (uploadError) throw uploadError;
+    }
 
     const { error: completionError } = await supabase.rpc('complete_my_profile', {
       account_holder_input: input.accountHolder.trim(),
+      branch_name_input: input.branchName.trim(),
       account_number_input: normalizedAccountNumber,
       ifsc_input: input.ifsc.trim().toUpperCase(),
       logo_path_input: logoPath,

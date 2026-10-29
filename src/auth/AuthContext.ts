@@ -4,9 +4,10 @@ import type { AccountProfile, RegistrationDetails, Role } from '../types';
 export type RegistrationInput = RegistrationDetails & { email: string; password: string };
 export type ProfileCompletionInput = {
   accountHolder: string;
+  branchName: string;
   accountNumber: string;
   ifsc: string;
-  logo: File;
+  logo?: File | null;
 };
 
 export type AuthContextValue = {

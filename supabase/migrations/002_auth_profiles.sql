@@ -22,19 +22,21 @@ create table public.business_profiles (
   address text not null,
   gst_number text not null,
   fssai_number text not null,
-  shop_number text not null,
+  shop_number text,
   contact_name text not null,
   contact_phone text not null,
   logo_path text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint business_profiles_gst_format check (gst_number ~ '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$'),
-  constraint business_profiles_fssai_format check (fssai_number ~ '^[0-9]{14}$')
+  constraint business_profiles_fssai_format check (fssai_number ~ '^[0-9]{14}$'),
+  constraint business_profiles_contact_phone_format check (contact_phone ~ '^[0-9]{10}$')
 );
 
 create table public.bank_details (
   user_id uuid primary key references public.profiles (id) on delete cascade,
   account_holder text not null,
+  branch_name text not null,
   account_number text not null,
   ifsc text not null,
   created_at timestamptz not null default now(),
@@ -81,6 +83,7 @@ declare
   business jsonb := new.raw_user_meta_data;
   normalized_gst text;
   normalized_fssai text;
+  normalized_phone text;
 begin
   if coalesce(business ->> 'role', '') not in ('retailer', 'wholesaler') then
     raise exception 'Registration role must be retailer or wholesaler';
@@ -89,6 +92,7 @@ begin
   user_role := (business ->> 'role')::public.app_role;
   normalized_gst := upper(trim(coalesce(business ->> 'gst_number', '')));
   normalized_fssai := trim(coalesce(business ->> 'fssai_number', ''));
+  normalized_phone := trim(coalesce(business ->> 'contact_phone', ''));
 
   if normalized_gst !~ '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$' then
     raise exception 'GST number must be a valid 15-character GSTIN';
@@ -98,12 +102,14 @@ begin
     raise exception 'FSSAI number must contain exactly 14 digits';
   end if;
 
+  if normalized_phone !~ '^[0-9]{10}$' then
+    raise exception 'Contact phone must contain exactly 10 digits';
+  end if;
+
   if coalesce(trim(business ->> 'business_name'), '') = ''
     or coalesce(trim(business ->> 'address'), '') = ''
-    or coalesce(trim(business ->> 'shop_number'), '') = ''
-    or coalesce(trim(business ->> 'contact_name'), '') = ''
-    or coalesce(trim(business ->> 'contact_phone'), '') = '' then
-    raise exception 'All business registration details are required';
+    or coalesce(trim(business ->> 'contact_name'), '') = '' then
+    raise exception 'Business name, address, contact name, and contact phone are required';
   end if;
 
   insert into public.profiles (id, email, role)
@@ -119,9 +125,9 @@ begin
     trim(business ->> 'address'),
     normalized_gst,
     normalized_fssai,
-    trim(business ->> 'shop_number'),
+    nullif(trim(coalesce(business ->> 'shop_number', '')), ''),
     trim(business ->> 'contact_name'),
-    trim(business ->> 'contact_phone')
+    normalized_phone
   );
 
   return new;
@@ -200,9 +206,10 @@ $$;
 
 create function public.complete_my_profile(
   account_holder_input text,
+  branch_name_input text,
   account_number_input text,
   ifsc_input text,
-  logo_path_input text
+  logo_path_input text default null
 )
 returns void
 language plpgsql
@@ -227,30 +234,32 @@ begin
   end if;
 
   if coalesce(trim(account_holder_input), '') = ''
+    or coalesce(trim(branch_name_input), '') = ''
     or coalesce(trim(account_number_input), '') !~ '^[0-9]{8,20}$'
-    or upper(trim(coalesce(ifsc_input, ''))) !~ '^[A-Z]{4}0[A-Z0-9]{6}$'
-    or coalesce(trim(logo_path_input), '') = '' then
-    raise exception 'Valid bank details and a shop logo are required';
+    or upper(trim(coalesce(ifsc_input, ''))) !~ '^[A-Z]{4}0[A-Z0-9]{6}$' then
+    raise exception 'Valid bank details are required';
   end if;
 
-  if split_part(logo_path_input, '/', 1) <> current_user_id::text then
+  if coalesce(trim(logo_path_input), '') <> '' and split_part(logo_path_input, '/', 1) <> current_user_id::text then
     raise exception 'The logo must be uploaded to your own profile folder';
   end if;
 
-  insert into public.bank_details (user_id, account_holder, account_number, ifsc)
+  insert into public.bank_details (user_id, account_holder, branch_name, account_number, ifsc)
   values (
     current_user_id,
     trim(account_holder_input),
+    trim(branch_name_input),
     trim(account_number_input),
     upper(trim(ifsc_input))
   )
   on conflict (user_id) do update
   set account_holder = excluded.account_holder,
+      branch_name = excluded.branch_name,
       account_number = excluded.account_number,
       ifsc = excluded.ifsc;
 
   update public.business_profiles
-  set logo_path = logo_path_input
+  set logo_path = coalesce(logo_path_input, logo_path)
   where user_id = current_user_id;
 
   update public.profiles
@@ -347,9 +356,9 @@ revoke all on function public.handle_new_auth_user() from public, anon, authenti
 revoke all on function public.set_updated_at() from public, anon, authenticated;
 revoke all on function public.is_super_admin() from public, anon;
 revoke all on function public.review_registration(uuid, boolean, text) from public, anon;
-revoke all on function public.complete_my_profile(text, text, text, text) from public, anon;
+revoke all on function public.complete_my_profile(text, text, text, text, text) from public, anon;
 revoke all on function public.consume_approval_notice() from public, anon;
 grant execute on function public.is_super_admin() to authenticated;
 grant execute on function public.review_registration(uuid, boolean, text) to authenticated;
-grant execute on function public.complete_my_profile(text, text, text, text) to authenticated;
+grant execute on function public.complete_my_profile(text, text, text, text, text) to authenticated;
 grant execute on function public.consume_approval_notice() to authenticated;

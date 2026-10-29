@@ -10,6 +10,7 @@ type ModalProps = {
   children: ReactNode;
   closeLabel?: string;
   dismissible?: boolean;
+  className?: string;
 };
 
 export function Modal({
@@ -20,6 +21,7 @@ export function Modal({
   children,
   closeLabel = 'Close dialog',
   dismissible = true,
+  className = 'max-w-lg',
 }: ModalProps) {
   useEffect(() => {
     if (!open || !dismissible) return undefined;
@@ -46,7 +48,7 @@ export function Modal({
         aria-modal="true"
         aria-labelledby="modal-title"
         aria-describedby={description ? 'modal-description' : undefined}
-        className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+        className={`max-h-[calc(100vh-2rem)] w-full overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl ${className}`}
       >
         <div className="flex items-start justify-between gap-4">
           <div>

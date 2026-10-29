@@ -25,7 +25,7 @@ export type BusinessProfileRow = {
   address: string;
   gst_number: string;
   fssai_number: string;
-  shop_number: string;
+  shop_number: string | null;
   contact_name: string;
   contact_phone: string;
   logo_path: string | null;
@@ -38,8 +38,8 @@ type ProductRow = {
   wholesaler_id: string;
   name: string;
   category: string;
-  grade: 'A' | 'B' | 'C';
-  unit: 'kg' | '25kg' | 'ton';
+  grade: string | null;
+  unit: string;
   price: number;
   stock: number;
   min_order: number;
@@ -57,6 +57,7 @@ export type Database = {
       bank_details: TableShape<{
         user_id: string;
         account_holder: string;
+        branch_name: string;
         account_number: string;
         ifsc: string;
         created_at: string;
@@ -64,6 +65,7 @@ export type Database = {
       }, {
         user_id: string;
         account_holder: string;
+        branch_name: string;
         account_number: string;
         ifsc: string;
       }>;
@@ -83,8 +85,8 @@ export type Database = {
         created_at?: string;
       }>;
       product_categories: TableShape<{ name: string; active: boolean; gst_rate: number }, { name: string; active?: boolean; gst_rate?: number }>;
-      product_grades: TableShape<{ name: 'A' | 'B' | 'C'; active: boolean }, { name: 'A' | 'B' | 'C'; active?: boolean }>;
-      product_units: TableShape<{ name: 'kg' | '25kg' | 'ton'; active: boolean }, { name: 'kg' | '25kg' | 'ton'; active?: boolean }>;
+      product_grades: TableShape<{ name: string; active: boolean }, { name: string; active?: boolean }>;
+      product_units: TableShape<{ name: string; active: boolean }, { name: string; active?: boolean }>;
       products: TableShape<ProductRow, Omit<ProductRow, 'id' | 'created_at' | 'updated_at'>>;
       app_settings: TableShape<{
         key: string;
@@ -336,7 +338,7 @@ export type Database = {
           id: string;
           business_name: string;
           address: string;
-          shop_number: string;
+          shop_number: string | null;
           contact_name: string;
           contact_phone: string;
           logo_path: string | null;
@@ -378,9 +380,10 @@ export type Database = {
       complete_my_profile: {
         Args: {
           account_holder_input: string;
+          branch_name_input: string;
           account_number_input: string;
           ifsc_input: string;
-          logo_path_input: string;
+          logo_path_input?: string | null;
         };
         Returns: undefined;
       };

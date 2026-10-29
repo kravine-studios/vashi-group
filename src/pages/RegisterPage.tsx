@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
-import { ArrowLeft, CheckCircle2, ShieldCheck, Store, Warehouse } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, ShieldCheck, Store, Warehouse } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -14,9 +14,9 @@ const registrationSchema = z.object({
   address: z.string().trim().min(5, 'Enter your business address.'),
   gstNumber: z.string().trim().toUpperCase().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Enter a valid 15-character GSTIN.'),
   fssaiNumber: z.string().trim().regex(/^\d{14}$/, 'FSSAI number must contain exactly 14 digits.'),
-  shopNumber: z.string().trim().min(1, 'Enter your office or shop number.'),
+  shopNumber: z.string().trim().optional().default(''),
   contactName: z.string().trim().min(2, 'Enter a contact name.'),
-  contactPhone: z.string().trim().regex(/^[+]?[\d\s()-]{8,20}$/, 'Enter a valid contact phone number.'),
+  contactPhone: z.string().trim().regex(/^\d{10}$/, 'Contact number must contain exactly 10 digits.'),
   email: z.string().trim().email('Enter a valid email address.'),
   password: z.string().min(8, 'Password must be at least 8 characters.'),
 });
@@ -28,17 +28,21 @@ export function RegisterPage() {
   const { signUp, error, clearError } = useAuth();
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmationRequired, setConfirmationRequired] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<RegistrationValues>({
     resolver: zodResolver(registrationSchema),
-    defaultValues: { role: 'retailer' },
+    defaultValues: { role: 'retailer', shopNumber: '', contactPhone: '' },
   });
 
   const selectedRole = watch('role');
+
+  const sanitizePhone = (value: string) => value.replace(/\D/g, '').slice(0, 10);
 
   const submit = async (values: RegistrationValues) => {
     setFormError(null);
@@ -135,16 +139,58 @@ export function RegisterPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Input label="Company / Shop Name" autoComplete="organization" placeholder="e.g. Laxmi Kirana Stores" {...register('businessName')} error={errors.businessName?.message} />
-            <Input label="Shop / Office Number" placeholder="e.g. Stall B-42, APMC Market 2" {...register('shopNumber')} error={errors.shopNumber?.message} />
+            <Input label="Shop / Office Number (optional)" placeholder="e.g. Stall B-42, APMC Market 2" {...register('shopNumber')} error={errors.shopNumber?.message} />
             <div className="sm:col-span-2">
               <Input label="Business Address" autoComplete="street-address" placeholder="Full address with pin code" {...register('address')} error={errors.address?.message} />
             </div>
             <Input label="GST Number (15 chars)" autoCapitalize="characters" placeholder="27AAAAA0000A1Z5" {...register('gstNumber')} error={errors.gstNumber?.message} />
             <Input label="FSSAI Number (14 digits)" inputMode="numeric" placeholder="10012345678901" {...register('fssaiNumber')} error={errors.fssaiNumber?.message} />
             <Input label="Contact Person" autoComplete="name" placeholder="Full name" {...register('contactName')} error={errors.contactName?.message} />
-            <Input label="Contact Phone" type="tel" autoComplete="tel" placeholder="+91 98765 43210" {...register('contactPhone')} error={errors.contactPhone?.message} />
+            <Input
+              label="Contact Phone"
+              type="tel"
+              autoComplete="tel"
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="9876543210"
+              onKeyDown={(event) => {
+                if (
+                  !/^\d$/.test(event.key) &&
+                  !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'].includes(event.key) &&
+                  !event.ctrlKey &&
+                  !event.metaKey
+                ) {
+                  event.preventDefault();
+                }
+              }}
+              {...register('contactPhone', {
+                onChange: (event) => {
+                  const nextValue = sanitizePhone(event.target.value);
+                  event.target.value = nextValue;
+                  setValue('contactPhone', nextValue, { shouldValidate: true, shouldDirty: true });
+                },
+              })}
+              error={errors.contactPhone?.message}
+            />
             <Input label="Business Email" type="email" autoComplete="email" placeholder="contact@business.in" {...register('email')} error={errors.email?.message} />
-            <Input label="Account Password" type="password" autoComplete="new-password" placeholder="At least 8 characters" {...register('password')} error={errors.password?.message} />
+            <Input
+              label="Account Password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              {...register('password')}
+              error={errors.password?.message}
+              trailingAdornment={(
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              )}
+            />
           </div>
 
           {formError || error ? (

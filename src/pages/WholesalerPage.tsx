@@ -20,6 +20,7 @@ import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { ProductEditorModal } from '../components/ProductEditorModal';
+import { IncomingOrderModal } from '../components/IncomingOrderModal';
 import { DisputeSection } from '../components/DisputeSection';
 import { supabase } from '../lib/env';
 import { formatCurrency } from '../lib/formatters';
@@ -46,6 +47,7 @@ export function WholesalerPage() {
   const [verification, setVerification] = useState<PickupVerification | null>(null);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
+  const [selectedIncoming, setSelectedIncoming] = useState<IncomingSubOrder | null>(null);
 
   const ownProducts = useMemo(
     () => products.filter((product) => product.wholesalerId === account?.id),
@@ -447,14 +449,19 @@ export function WholesalerPage() {
             ) : null}
 
             {!incomingLoading && incomingOrders.length ? (
-              <div className="max-h-[36rem] space-y-3 overflow-y-auto pr-1">
+              <div className="max-h-[36rem] space-y-2.5 overflow-y-auto pr-1">
                 {incomingOrders.map((incoming) => (
-                  <article key={incoming.subOrder.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-                    <div className="flex flex-wrap items-start justify-between gap-2 pb-2.5 border-b border-slate-100">
+                  <button
+                    key={incoming.subOrder.id}
+                    type="button"
+                    onClick={() => setSelectedIncoming(incoming)}
+                    className="w-full text-left rounded-xl border border-slate-200 bg-white p-4 shadow-2xs transition hover:border-emerald-300 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-emerald-600 cursor-pointer group"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2 pb-2 border-b border-slate-100">
                       <div>
-                        <p className="font-bold text-slate-900 text-sm">{incoming.retailer.businessName}</p>
-                        <p className="text-xs text-slate-600">
-                          {incoming.retailer.shopNumber} · #{incoming.orderId.slice(0, 8).toUpperCase()}
+                        <p className="font-bold text-slate-900 text-sm group-hover:text-emerald-900 transition-colors">{incoming.retailer.businessName}</p>
+                        <p className="text-xs text-slate-500">
+                          {incoming.retailer.shopNumber || 'Shop details on file'} · #{incoming.orderId.slice(0, 8).toUpperCase()}
                         </p>
                       </div>
                       <Badge
@@ -471,49 +478,19 @@ export function WholesalerPage() {
                       </Badge>
                     </div>
 
-                    <p className="mt-2 text-xs text-slate-700">
-                      Retailer Contact: <strong className="text-slate-900">{incoming.retailer.contactName}</strong>
-                      {incoming.retailer.contactPhone ? (
-                        <> · <a href={`tel:${incoming.retailer.contactPhone}`} className="font-bold text-emerald-700 hover:underline">{incoming.retailer.contactPhone}</a></>
-                      ) : null}
-                    </p>
-
-                    <div className="mt-2.5 flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <div className="mt-2.5 flex items-center justify-between text-xs">
                       <span className="font-extrabold text-slate-900 font-mono text-sm">
                         {formatCurrency(incoming.subOrder.amount)}
                       </span>
-                      <span className="font-semibold text-slate-700">
-                        {incoming.paymentMethod === 'cod' ? 'Cash on Collection' : 'Online Escrow'} · {incoming.paymentStatus.replace('_', ' ')}
+                      <span className="font-semibold text-slate-600">
+                        {incoming.paymentMethod === 'cod' ? 'COD' : 'Online'} · {incoming.subOrder.items.length} {incoming.subOrder.items.length === 1 ? 'item' : 'items'}
                       </span>
                     </div>
 
-                    <ul className="mt-2.5 space-y-1 text-xs text-slate-700">
-                      {incoming.subOrder.items.map((item) => (
-                        <li key={`${incoming.subOrder.id}:${item.productId}:${item.name}`} className="flex justify-between">
-                          <span className="font-medium text-slate-900">{item.name}</span>
-                          <span className="font-mono font-bold text-slate-800">{item.quantity} {item.unit}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    {incoming.fulfilmentMethod === 'truck_slot' && incoming.transport ? (
-                      <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-2.5 text-xs text-sky-950 font-medium">
-                        <Truck size={14} className="mr-1 inline text-sky-700" /> Mandi truck pickup:{' '}
-                        <strong>{new Date(incoming.transport.startsAt).toLocaleTimeString('en-IN')}</strong> · Driver: {incoming.transport.driverName} (
-                        <a href={`tel:${incoming.transport.contactNumber}`} className="font-bold underline">{incoming.transport.contactNumber}</a>)
-                      </div>
-                    ) : incoming.fulfilmentMethod === 'self_pickup' ? (
-                      <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-950 font-medium">
-                        Self-pickup: Retailer must present their pickup token before goods release.
-                      </p>
-                    ) : null}
-
-                    {incoming.orderStatus !== 'expired' && incoming.orderStatus !== 'cancelled' ? (
-                      <div className="mt-2 pt-2 border-t border-slate-100">
-                        <DisputeSection orderId={incoming.orderId} subOrderId={incoming.subOrder.id} />
-                      </div>
-                    ) : null}
-                  </article>
+                    <p className="mt-2 text-[11px] text-emerald-700 font-semibold group-hover:text-emerald-800 transition-colors">
+                      Click to view full order details →
+                    </p>
+                  </button>
                 ))}
               </div>
             ) : null}
@@ -606,6 +583,7 @@ export function WholesalerPage() {
         </section>
       </div>
       <ProductEditorModal open={editorOpen} product={selectedProduct} onClose={closeEditor} />
+      <IncomingOrderModal order={selectedIncoming} onClose={() => setSelectedIncoming(null)} />
     </main>
   );
 }

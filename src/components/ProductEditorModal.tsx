@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { categories, grades, units } from '../data/masters';
+import { categories, units } from '../data/masters';
 import { useCatalog } from '../catalog/useCatalog';
 import type { Product } from '../types';
 import { Button } from './Button';
@@ -12,7 +12,7 @@ import { Modal } from './Modal';
 const schema = z.object({
   name: z.string().trim().min(2, 'Enter a product name.'),
   category: z.enum(categories),
-  grade: z.enum(grades),
+  grade: z.string().trim().optional().default(''),
   price: z.coerce.number().positive('Price must be greater than zero.'),
   unit: z.enum(units),
   stock: z.coerce.number().nonnegative('Stock cannot be negative.'),
@@ -40,13 +40,15 @@ export function ProductEditorModal({ open, product, onClose }: ProductEditorModa
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
-      category: 'Rice',
-      grade: 'A',
+      category: categories[0],
+      grade: '',
       price: 0,
       unit: 'kg',
       stock: 0,
@@ -55,20 +57,27 @@ export function ProductEditorModal({ open, product, onClose }: ProductEditorModa
     },
   });
 
+  const selectedCategory = watch('category');
+  useEffect(() => {
+    if (selectedCategory === 'Oils & Ghee') {
+      setValue('unit', 'litres', { shouldDirty: true, shouldValidate: true });
+    }
+  }, [selectedCategory, setValue]);
+
   useEffect(() => {
     reset(product ? {
       name: product.name,
       category: product.category as (typeof categories)[number],
-      grade: product.grade,
+      grade: product.grade ?? '',
       price: product.price,
-      unit: product.unit,
+      unit: product.unit as (typeof units)[number],
       stock: product.stock,
       minOrder: product.minOrder,
       isActive: product.isActive,
     } : {
       name: '',
-      category: 'Rice',
-      grade: 'A',
+      category: categories[0],
+      grade: '',
       price: 0,
       unit: 'kg',
       stock: 0,
@@ -83,8 +92,8 @@ export function ProductEditorModal({ open, product, onClose }: ProductEditorModa
   const submit = async (values: FormValues) => {
     setError(null);
     const photoCount = images.length + savedPhotos.length;
-    if (photoCount < 1 || photoCount > 5) {
-      setError('Add between 1 and 5 product photos. Remove existing photos or choose fewer new ones.');
+    if (photoCount > 5) {
+      setError('Choose up to 5 product photos.');
       return;
     }
 
@@ -112,14 +121,14 @@ export function ProductEditorModal({ open, product, onClose }: ProductEditorModa
         <Input label="Product name" placeholder="e.g. Premium Basmati Rice" {...register('name')} error={errors.name?.message} />
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField label="Category" options={categories} registration={register('category')} error={errors.category?.message} />
-          <SelectField label="Grade" options={grades} registration={register('grade')} error={errors.grade?.message} />
+          <Input label="Grade (optional)" placeholder="e.g. Premium / Grade 2 / House blend" {...register('grade')} error={errors.grade?.message} />
           <Input label="Price" type="number" min="0.01" step="0.01" {...register('price')} error={errors.price?.message} />
           <SelectField label="Unit" options={units} registration={register('unit')} error={errors.unit?.message} />
           <Input label="Available stock" type="number" min="0" step="0.01" {...register('stock')} error={errors.stock?.message} />
           <Input label="Minimum order quantity" type="number" min="0.01" step="0.01" {...register('minOrder')} error={errors.minOrder?.message} />
         </div>
         <div>
-          <label htmlFor="product-photos" className="block text-sm font-medium text-slate-700">Product photos (1–5, each compressed under 300 KB)</label>
+          <label htmlFor="product-photos" className="block text-sm font-medium text-slate-700">Product photos (optional, up to 5)</label>
           <input
             id="product-photos"
             type="file"

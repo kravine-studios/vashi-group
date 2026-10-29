@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
-import { ArrowLeft, KeyRound, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useAuth } from '../auth/useAuth';
@@ -27,6 +27,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { signIn, signInDemo, error, clearError } = useAuth();
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -89,10 +90,20 @@ export function LoginPage() {
           />
           <Input
             label="Account Password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             placeholder="••••••••"
             leadingAdornment={<Lock size={16} />}
+            trailingAdornment={(
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            )}
             {...register('password')}
             error={errors.password?.message}
           />

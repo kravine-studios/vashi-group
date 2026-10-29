@@ -104,7 +104,7 @@ export const demoSession = {
       address: details.address,
       gstNumber: details.gstNumber,
       fssaiNumber: details.fssaiNumber,
-      shopNumber: details.shopNumber,
+      shopNumber: details.shopNumber ?? '',
       contactName: details.contactName,
       contactPhone: details.contactPhone,
       logoPath: null,
@@ -208,22 +208,23 @@ export const demoSession = {
 
   completeProfile(
     accountHolder: string,
+    branchName: string,
     accountNumber: string,
     ifsc: string,
-    logoPath: string,
+    logoPath: string | null,
   ): AccountProfile {
     const id = localStorage.getItem(sessionKey);
     const accounts = readAccounts();
     const user = accounts.find((record) => record.id === id);
     if (!user || user.account.status !== 'approved') throw new Error('An approved account is required.');
     if (!accountHolder.trim()) throw new Error('Account holder name is required.');
+    if (!branchName.trim()) throw new Error('Branch name is required.');
     if (!/^\d{8,20}$/.test(accountNumber)) throw new Error('Account number must contain 8–20 digits.');
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.trim().toUpperCase())) throw new Error('Enter a valid IFSC code.');
-    if (!logoPath) throw new Error('A shop logo is required.');
     user.account = {
       ...user.account,
       profileCompleted: true,
-      logoPath,
+      logoPath: logoPath ?? user.account.logoPath,
     };
     writeAccounts(accounts);
     return user.account;

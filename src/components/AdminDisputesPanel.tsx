@@ -12,7 +12,7 @@ import { Badge } from './Badge';
 import { Button } from './Button';
 import { EmptyState } from './EmptyState';
 
-export function AdminDisputesPanel({ onOpenCountChange }: { onOpenCountChange: (count: number) => void }) {
+export function AdminDisputesPanel({ onOpenCountChange, sectionId }: { onOpenCountChange: (count: number) => void; sectionId?: string }) {
   const { account } = useAuth();
   const [disputes, setDisputes] = useState<DisputeRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +67,7 @@ export function AdminDisputesPanel({ onOpenCountChange }: { onOpenCountChange: (
 
   const openCount = disputes.filter((dispute) => dispute.status === 'open' || dispute.status === 'under_review').length;
   return (
-    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-card md:p-6">
+    <section id={sectionId} className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-card md:p-6">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div><h2 className="text-xl font-bold">Dispute management</h2><p className="mt-1 text-sm text-slate-500">{openCount} open · {disputes.length} total</p></div>
         <Button size="sm" variant="secondary" onClick={() => void refresh()} disabled={loading}>Refresh</Button>

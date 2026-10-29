@@ -19,6 +19,7 @@ import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { DisputeSection } from '../components/DisputeSection';
+import { RetailerOrderModal } from '../components/RetailerOrderModal';
 import { formatCurrency } from '../lib/formatters';
 import type { OrderSummary } from '../services/demoOrders';
 
@@ -47,6 +48,7 @@ export function CartPage() {
   const [completedOrder, setCompletedOrder] = useState<OrderSummary | null>(null);
   const [pendingPaymentOrder, setPendingPaymentOrder] = useState<OrderSummary | null>(null);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
 
   const updateQuantity = async (product: (typeof items)[number]['product'], nextQuantity: number) => {
     if (nextQuantity < product.minOrder) return;
@@ -450,6 +452,7 @@ export function CartPage() {
                   order={order}
                   reordering={reorderingId === order.id}
                   onReorder={() => void handleReorder(order)}
+                  onSelect={() => setSelectedOrder(order)}
                 />
               ))}
             </div>
@@ -459,6 +462,12 @@ export function CartPage() {
             </div>
           )}
         </section>
+        <RetailerOrderModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          reordering={selectedOrder ? reorderingId === selectedOrder.id : false}
+          onReorder={selectedOrder ? () => void handleReorder(selectedOrder) : undefined}
+        />
       </div>
     </main>
   );
@@ -559,10 +568,12 @@ function OrderCard({
   order,
   reordering,
   onReorder,
+  onSelect,
 }: {
   order: OrderSummary;
   reordering: boolean;
   onReorder: () => void;
+  onSelect: () => void;
 }) {
   const statusTone =
     order.status === 'confirmed' || order.status === 'completed'
@@ -572,11 +583,22 @@ function OrderCard({
         : 'warning';
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:border-slate-300">
+    <article
+      tabIndex={0}
+      role="button"
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:border-emerald-300 hover:shadow-md cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+    >
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-sm font-extrabold text-slate-900">
+            <span className="font-mono text-sm font-extrabold text-slate-900 group-hover:text-emerald-900 transition-colors">
               #{order.id.slice(0, 8).toUpperCase()}
             </span>
             <span className="text-slate-400">·</span>
@@ -605,8 +627,22 @@ function OrderCard({
           <Button
             size="sm"
             variant="secondary"
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect();
+            }}
+            className="min-h-[36px] text-xs font-semibold"
+          >
+            View Details
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
             disabled={reordering}
-            onClick={onReorder}
+            onClick={(event) => {
+              event.stopPropagation();
+              onReorder();
+            }}
             className="min-h-[36px] text-xs font-bold"
             title="Add all items from this order into your cart"
           >
@@ -645,13 +681,20 @@ function OrderCard({
               ))}
             </ul>
             {order.status !== 'expired' && order.status !== 'cancelled' ? (
-              <div className="mt-2.5 pt-2 border-t border-slate-200/60">
+              <div
+                className="mt-2.5 pt-2 border-t border-slate-200/60"
+                onClick={(event) => event.stopPropagation()}
+              >
                 <DisputeSection orderId={order.id} subOrderId={subOrder.id} />
               </div>
             ) : null}
           </div>
         ))}
       </div>
+
+      <p className="mt-3 text-[11px] font-semibold text-emerald-700 group-hover:text-emerald-800 transition-colors">
+        Click order card to view full structured details →
+      </p>
     </article>
   );
 }

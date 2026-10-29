@@ -7,9 +7,9 @@ export type Product = {
   id: string;
   name: string;
   category: string;
-  grade: 'A' | 'B' | 'C';
+  grade?: string;
   price: number;
-  unit: 'kg' | '25kg' | 'ton';
+  unit: string;
   stock: number;
   minOrder: number;
   wholesalerId: string;
@@ -56,7 +56,7 @@ export type RegistrationDetails = {
   address: string;
   gstNumber: string;
   fssaiNumber: string;
-  shopNumber: string;
+  shopNumber?: string;
   contactName: string;
   contactPhone: string;
 };

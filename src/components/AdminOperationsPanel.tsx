@@ -37,7 +37,7 @@ function saveSettingValue(setting: AdminSetting, value: string | number) {
   return updateAdminSetting({ key: setting.key, value: Number(value) });
 }
 
-export function AdminOperationsPanel({ onOrdersToday }: { onOrdersToday: (count: number) => void }) {
+export function AdminOperationsPanel({ onOrdersToday, sectionId }: { onOrdersToday: (count: number) => void; sectionId?: string }) {
   const [tab, setTab] = useState<AdminTab>('orders');
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [accounts, setAccounts] = useState<AdminAccount[]>([]);
@@ -114,7 +114,7 @@ export function AdminOperationsPanel({ onOrdersToday }: { onOrdersToday: (count:
   };
 
   return (
-    <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-card md:p-6">
+    <section id={sectionId} className="mt-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-card md:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Platform controls</p>
@@ -243,7 +243,7 @@ function AccountsPanel({
                 <div>
                   <p className="font-semibold">{account.businessName} <span className="ml-1 text-xs font-normal text-slate-500">· {account.role.replace('_', ' ')}</span></p>
                   <p className="text-sm text-slate-600">{account.email} · {account.contactName} · {account.contactPhone}</p>
-                  <p className="mt-1 text-xs text-slate-500">Shop {account.shopNumber} · GST {account.gstNumber} · FSSAI {account.fssaiNumber}</p>
+                  <p className="mt-1 text-xs text-slate-500">Shop {account.shopNumber || 'N/A'} · GST {account.gstNumber} · FSSAI {account.fssaiNumber}</p>
                 </div>
                 <Badge tone={account.status === 'approved' ? 'success' : account.status === 'suspended' || account.status === 'rejected' ? 'danger' : 'warning'}>{account.status}</Badge>
               </div>

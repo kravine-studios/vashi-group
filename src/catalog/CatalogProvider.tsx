@@ -3,6 +3,7 @@ import { useAuth } from '../auth/useAuth';
 import { products as demoProducts } from '../data/products';
 import { wholesalers as demoWholesalers } from '../data/demo';
 import { compressProductImage } from '../lib/imageCompression';
+import { categories } from '../data/masters';
 import { supabase } from '../lib/env';
 import type { Product } from '../types';
 import { CatalogContext } from './CatalogContext';
@@ -20,14 +21,76 @@ const demoDirectory: WholesalerDirectoryEntry[] = demoWholesalers.map((wholesale
   logoPath: null,
 }));
 
+const categoryAliases: Record<string, string> = {
+  'rice': 'Grains',
+  'wheat': 'Flour/ Atta',
+  'spices': 'Spices / masalas',
+  'dry fruits': 'Dry fruits',
+  'dry fruit': 'Dry fruits',
+  'pulses': 'Dal/ Pulses',
+  'dal': 'Dal/ Pulses',
+  'dal/pulses': 'Dal/ Pulses',
+  'oil': 'Oils & Ghee',
+  'oils': 'Oils & Ghee',
+  'edible oil': 'Oils & Ghee',
+  'edible oils': 'Oils & Ghee',
+  'oils & ghee': 'Oils & Ghee',
+  'spices / masalas': 'Spices / masalas',
+  'flour/ atta': 'Flour/ Atta',
+  'dal/ pulses': 'Dal/ Pulses',
+  'grains': 'Grains',
+};
+
+function normalizeCategory(cat: string): string {
+  const trimmed = cat.trim();
+  const directMatch = categories.find((c) => c.toLowerCase() === trimmed.toLowerCase());
+  if (directMatch) return directMatch;
+  return categoryAliases[trimmed.toLowerCase()] ?? trimmed;
+}
+
 function readDemoProducts(): Product[] {
+  const defaults = demoProducts.map((product) => ({
+    ...product,
+    wholesalerId: demoWholesalerId(product.wholesalerId),
+  }));
   const stored = localStorage.getItem(demoProductsKey);
   if (!stored) {
-    return demoProducts.map((product) => ({ ...product, wholesalerId: demoWholesalerId(product.wholesalerId) }));
+    localStorage.setItem(demoProductsKey, JSON.stringify(defaults));
+    return defaults;
   }
-  const parsed: unknown = JSON.parse(stored);
-  if (!Array.isArray(parsed)) throw new Error('Saved demo products are invalid. Clear the kirana-demo-products browser storage key.');
-  return parsed as Product[];
+
+  try {
+  
+    const parsed: unknown = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      localStorage.setItem(demoProductsKey, JSON.stringify(defaults));
+      return defaults;
+    }
+
+    const migrated = (parsed as Product[]).map((product) => ({
+      ...product,
+      category: normalizeCategory(product.category || ''),
+    }));
+
+    const existingCategories = new Set(migrated.map((p) => p.category));
+    const missingCategories = categories.filter((c) => !existingCategories.has(c));
+
+    let result = migrated;
+    if (missingCategories.length > 0 || migrated.length < defaults.length) {
+      const existingIds = new Set(migrated.map((p) => p.id));
+      const missingDefaults = defaults.filter((d) => !existingIds.has(d.id));
+      result = [...migrated, ...missingDefaults];
+    }
+
+    localStorage.setItem(demoProductsKey, JSON.stringify(result));
+    return result;
+  } catch {
+    localStorage.setItem(demoProductsKey, JSON.stringify(defaults));
+    return defaults;
+  }
+
+
+
 }
 
 function productFromDatabase(
@@ -131,7 +194,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     if (input.id && !currentProduct) throw new Error('This product is no longer available. Refresh and try again.');
     const existingPhotos = compressedFiles.length ? input.existingPhotos : (currentProduct?.photos ?? input.existingPhotos);
     const finalPhotoCount = compressedFiles.length + existingPhotos.length;
-    if (finalPhotoCount < 1 || finalPhotoCount > 5) throw new Error('Add between 1 and 5 product photos.');
+    if (finalPhotoCount > 5) throw new Error('Choose up to 5 product photos.');
 
     if (!supabase) {
       const demoId = input.id ?? crypto.randomUUID();
@@ -141,7 +204,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         id: demoId,
         name: input.name.trim(),
         category: input.category,
-        grade: input.grade,
+        grade: input.grade || '',
         price: input.price,
         unit: input.unit,
         stock: input.stock,
@@ -149,7 +212,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         wholesalerId: account.id,
         wholesalerName: account.businessName,
         isActive: input.isActive,
-        image: photoUrls[0],
+        image: photoUrls[0] ?? '',
         photos: photoUrls,
       };
       const current = readDemoProducts();
@@ -177,7 +240,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         wholesaler_id: account.id,
         name: input.name.trim(),
         category: input.category,
-        grade: input.grade,
+        grade: input.grade || null,
         unit: input.unit,
         price: input.price,
         stock: input.stock,

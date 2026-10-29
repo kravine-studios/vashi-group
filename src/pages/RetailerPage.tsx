@@ -17,7 +17,7 @@ import {
 import { Link } from 'react-router-dom';
 import { useCatalog } from '../catalog/useCatalog';
 import { useCart } from '../cart/useCart';
-import { categories, grades } from '../data/masters';
+import { categories } from '../data/masters';
 import { formatCurrency } from '../lib/formatters';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -254,24 +254,6 @@ export function RetailerPage() {
               setMaxPrice={setMaxPrice}
             />
 
-            <div className="mt-6 border-t border-slate-100 pt-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Verified Stalls</p>
-              <div className="space-y-1">
-                {wholesalers.map((seller) => (
-                  <Link
-                    key={seller.id}
-                    to={`/wholesalers/${seller.id}`}
-                    className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <Store size={14} className="text-emerald-700 shrink-0" />
-                      <span className="truncate">{seller.name}</span>
-                    </span>
-                    <span className="text-[10px] text-slate-500 shrink-0">Shop {seller.shopNumber}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
           </aside>
 
           {/* Product Listings / Comparison */}
@@ -741,13 +723,16 @@ function FilterForm({
         options={categories}
         placeholder="All Commodities"
       />
-      <FilterSelect
-        label="Quality Grade"
-        value={grade}
-        onChange={setGrade}
-        options={grades}
-        placeholder="All Grades"
-      />
+      <label className="block">
+        <span className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-700">Quality Grade</span>
+        <input
+          type="text"
+          value={grade}
+          onChange={(event) => setGrade(event.target.value)}
+          placeholder="All Grades"
+          className="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 outline-none transition focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+        />
+      </label>
       <FilterSelect
         label="Supplier Stall"
         value={wholesaler}
