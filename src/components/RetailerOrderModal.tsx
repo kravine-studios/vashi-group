@@ -6,14 +6,11 @@ import {
   Copy,
   CreditCard,
   Download,
-  MapPin,
   Package,
   Phone,
-  PhoneCall,
   RotateCcw,
   Store,
   Truck,
-  User,
 } from 'lucide-react';
 import { Badge } from './Badge';
 import { Button } from './Button';

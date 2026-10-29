@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   Calendar,
   Check,
-  CheckCircle2,
   Clock,
   Copy,
   CreditCard,
@@ -10,7 +9,6 @@ import {
   MapPin,
   Package,
   PackageCheck,
-  Phone,
   PhoneCall,
   Store,
   Truck,

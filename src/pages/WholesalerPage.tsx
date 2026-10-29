@@ -10,7 +10,6 @@ import {
   Plus,
   RefreshCw,
   Trash2,
-  Truck,
   Wallet,
   Warehouse,
 } from 'lucide-react';
@@ -21,7 +20,6 @@ import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { ProductEditorModal } from '../components/ProductEditorModal';
 import { IncomingOrderModal } from '../components/IncomingOrderModal';
-import { DisputeSection } from '../components/DisputeSection';
 import { supabase } from '../lib/env';
 import { formatCurrency } from '../lib/formatters';
 import {
