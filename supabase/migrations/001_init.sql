@@ -1,0 +1,2 @@
+-- Placeholder Supabase migration for marketplace schema.
+-- Add auth, profiles, products, orders, disputes, transport slots, and RLS policies here.
