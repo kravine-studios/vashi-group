@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowRight, Box, CheckCircle2, ShoppingCart, ShieldCheck, Store, Truck } from 'lucide-react';
+import { Box, CheckCircle2, ShieldCheck, Store, Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function HomePage() {
@@ -59,16 +59,16 @@ export function HomePage() {
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
-                to="/retailer"
-                className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-emerald-700 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-900 shadow-sm transition active:scale-[0.98]"
+                to="/register"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-emerald-700 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-900 shadow-sm transition active:scale-[0.98]"
               >
-                Browse wholesale catalogue <ArrowRight size={17} />
+                Register Shop
               </Link>
               <Link
                 to="/login"
                 className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 hover:bg-slate-50 transition active:scale-[0.98]"
               >
-                Wholesaler portal
+                Sign in
               </Link>
             </div>
 
@@ -79,21 +79,8 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* Quick Metrics & Key Pillars */}
+          {/* Key Pillars */}
           <div className="grid gap-4 lg:col-span-5">
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">Today's APMC Volume</p>
-                  <p className="mt-1 text-3xl font-extrabold text-slate-900 font-mono">₹4,85,000</p>
-                  <p className="mt-0.5 text-xs text-slate-600">128 kirana baskets settled</p>
-                </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-700 text-white shadow-xs">
-                  <ShoppingCart size={22} />
-                </div>
-              </div>
-            </div>
-
             <div className="grid grid-cols-2 gap-3">
               <FeatureCard icon={<Box size={20} className="text-emerald-700" />} title="40+ Staples" description="Rice, pulses, spices & oils" />
               <FeatureCard icon={<Truck size={20} className="text-emerald-700" />} title="Daily Transport" description="Scheduled mandi truck slots" />

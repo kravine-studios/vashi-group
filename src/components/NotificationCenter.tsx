@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
 import { supabase } from '../lib/env';
@@ -22,6 +22,25 @@ export function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [liveNotification, setLiveNotification] = useState<NotificationRow | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const clickedInsidePanel = panelRef.current?.contains(target);
+      const clickedToggle = buttonRef.current?.contains(target);
+
+      if (!clickedInsidePanel && !clickedToggle) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [open]);
 
   useEffect(() => {
     if (!account) {
@@ -125,6 +144,7 @@ export function NotificationCenter() {
     ) : null}
     <div className="relative">
       <Button
+        ref={buttonRef}
         variant="ghost"
         size="sm"
         aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
@@ -136,7 +156,7 @@ export function NotificationCenter() {
         {unreadCount ? <span className="ml-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{unreadCount > 99 ? '99+' : unreadCount}</span> : null}
       </Button>
       {open ? (
-        <section aria-label="Notifications" className="absolute right-0 top-full z-50 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <section ref={panelRef} aria-label="Notifications" className="absolute right-0 top-full z-50 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
           <header className="flex items-center justify-between border-b border-slate-100 p-4">
             <div><h2 className="font-bold">Notifications</h2><p className="text-xs text-slate-500">{unreadCount} unread</p></div>
             <Button size="sm" variant="ghost" disabled={!unreadCount} onClick={() => void markRead(notifications.filter((item) => !item.read_at).map((item) => item.id))}>
