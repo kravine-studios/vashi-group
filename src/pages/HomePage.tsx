@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowRight, Box, CheckCircle2, ShoppingCart, ShieldCheck, Store, Truck, Users } from 'lucide-react';
+import { ArrowRight, Box, CheckCircle2, ShoppingCart, ShieldCheck, Store, Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function HomePage() {

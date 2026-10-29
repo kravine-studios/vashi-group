@@ -2,11 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
-  CheckCircle2,
-  Clock,
   CreditCard,
   Minus,
-  Package,
   PackageCheck,
   Plus,
   RotateCcw,
@@ -309,10 +306,10 @@ export function CartPage() {
                   </label>
 
                   <label className={`flex items-start gap-3 rounded-xl border p-3.5 transition ${!onlinePaymentAvailable
-                      ? 'border-slate-200 opacity-60 cursor-not-allowed bg-slate-50'
-                      : paymentMethod === 'online'
-                        ? 'border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600 cursor-pointer'
-                        : 'border-slate-200 hover:bg-slate-50 cursor-pointer'
+                    ? 'border-slate-200 opacity-60 cursor-not-allowed bg-slate-50'
+                    : paymentMethod === 'online'
+                      ? 'border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600 cursor-pointer'
+                      : 'border-slate-200 hover:bg-slate-50 cursor-pointer'
                     }`}>
                     <input
                       type="radio"
@@ -352,10 +349,10 @@ export function CartPage() {
                   </label>
 
                   <label className={`flex items-start gap-3 rounded-xl border p-3.5 transition ${!slots.length
-                      ? 'border-slate-200 opacity-60 cursor-not-allowed bg-slate-50'
-                      : fulfilmentMethod === 'truck_slot'
-                        ? 'border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600 cursor-pointer'
-                        : 'border-slate-200 hover:bg-slate-50 cursor-pointer'
+                    ? 'border-slate-200 opacity-60 cursor-not-allowed bg-slate-50'
+                    : fulfilmentMethod === 'truck_slot'
+                      ? 'border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600 cursor-pointer'
+                      : 'border-slate-200 hover:bg-slate-50 cursor-pointer'
                     }`}>
                     <input
                       type="radio"

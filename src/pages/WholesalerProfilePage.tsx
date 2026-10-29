@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCircle2, MapPin, Package, Phone, ShoppingCart, Store } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useCatalog } from '../catalog/useCatalog';
 import { useCart } from '../cart/useCart';

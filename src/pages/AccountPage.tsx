@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, Clock, ShieldAlert, UserCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
 import { Button } from '../components/Button';
 import { Badge } from '../components/Badge';

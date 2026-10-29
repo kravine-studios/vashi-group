@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   ArrowDownUp,
-  Boxes,
   Check,
-  CheckCircle2,
   Filter,
   LayoutGrid,
   Package,
@@ -134,8 +132,8 @@ export function RetailerPage() {
               type="button"
               onClick={() => setCategory('')}
               className={`whitespace-nowrap min-h-[36px] rounded-lg px-3 py-1.5 font-bold transition ${category === ''
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
                 }`}
             >
               All Categories
@@ -146,8 +144,8 @@ export function RetailerPage() {
                 type="button"
                 onClick={() => setCategory(category === cat ? '' : cat)}
                 className={`whitespace-nowrap min-h-[36px] rounded-lg px-3 py-1.5 font-bold transition ${category === cat
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
                   }`}
               >
                 {cat}

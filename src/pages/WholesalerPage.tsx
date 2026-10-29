@@ -9,7 +9,6 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  Store,
   Trash2,
   Truck,
   Wallet,
