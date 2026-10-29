@@ -5,6 +5,8 @@ node_modules
 .env.local
 .env.*
 !.env.example
+.agents/
+.vscode/
 .DS_Store
 coverage
 *.tsbuildinfo
