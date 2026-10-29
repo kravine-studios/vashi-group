@@ -318,9 +318,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCartLines(nextLines);
   }, [account, cartLines]);
 
-  const addToCart = useCallback(async (product: CartEntry['product']) => {
+  const addToCart = useCallback(async (product: CartEntry['product'], quantity = product.minOrder) => {
+    if (!Number.isFinite(quantity) || quantity < product.minOrder || quantity > product.stock) {
+      throw new Error(`Quantity must be between ${product.minOrder} and ${product.stock} ${product.unit}.`);
+    }
     const existing = cartLines.find((line) => line.productId === product.id);
-    const nextQuantity = existing ? existing.quantity + product.minOrder : product.minOrder;
+    const nextQuantity = existing ? existing.quantity + quantity : quantity;
     if (nextQuantity > product.stock) throw new Error(`Only ${product.stock} ${product.unit} are available.`);
     const nextLines = existing
       ? cartLines.map((line) => line.productId === product.id ? { ...line, quantity: nextQuantity } : line)

@@ -28,7 +28,7 @@ export type CartContextValue = {
   subtotal: number;
   codOrderCap: number;
   onlinePaymentAvailable: boolean;
-  addToCart: (product: Product) => Promise<void>;
+  addToCart: (product: Product, quantity?: number) => Promise<void>;
   setQuantity: (product: Product, quantity: number) => Promise<void>;
   removeFromCart: (productId: string) => Promise<void>;
   placeOrder: (
