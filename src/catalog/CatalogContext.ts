@@ -11,7 +11,7 @@ export type WholesalerDirectoryEntry = {
   id: string;
   name: string;
   address: string;
-  shopNumber: string;
+  shopNumber: string | null;
   contactName: string;
   contactPhone: string;
   logoPath: string | null;

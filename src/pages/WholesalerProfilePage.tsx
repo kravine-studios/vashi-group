@@ -77,14 +77,14 @@ export function WholesalerProfilePage() {
                     <MapPin size={15} className="shrink-0 text-emerald-400" /> {wholesaler.address}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1.5 text-xs sm:text-sm text-slate-300">
-                    <Package size={15} className="shrink-0 text-emerald-400" /> Stall #{wholesaler.shopNumber}
+                    <Package size={15} className="shrink-0 text-emerald-400" /> Stall #{wholesaler.shopNumber || 'APMC Yard'}
                   </p>
                 </div>
               </div>
 
               <div className="mt-6 grid gap-4 border-t border-slate-800 pt-5 sm:grid-cols-3">
                 <ProfileDetail label="Stall Manager" value={wholesaler.contactName} />
-                <ProfileDetail label="Mandi Shop Number" value={`Stall ${wholesaler.shopNumber}`} />
+                <ProfileDetail label="Mandi Shop Number" value={wholesaler.shopNumber ? `Stall ${wholesaler.shopNumber}` : 'APMC Market Yard'} />
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Direct Phone</p>
                   <a

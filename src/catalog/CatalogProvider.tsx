@@ -99,7 +99,7 @@ function productFromDatabase(
     wholesaler_id: string;
     name: string;
     category: string;
-    grade: Product['grade'];
+    grade: string | null | undefined;
     unit: Product['unit'];
     price: number;
     stock: number;
@@ -114,7 +114,7 @@ function productFromDatabase(
     id: row.id,
     name: row.name,
     category: row.category,
-    grade: row.grade,
+    grade: row.grade ?? undefined,
     price: Number(row.price),
     unit: row.unit,
     stock: Number(row.stock),

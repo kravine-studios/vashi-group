@@ -7,7 +7,7 @@ export type OrderLine = {
   productId: string;
   name: string;
   category: string;
-  grade: string;
+  grade?: string;
   unit: string;
   unitPrice: number;
   quantity: number;
@@ -201,7 +201,7 @@ export function createDemoOrder(
       productId: product.id,
       name: product.name,
       category: product.category,
-      grade: product.grade,
+      grade: product.grade ?? 'Standard',
       unit: product.unit,
       unitPrice: product.price,
       quantity,

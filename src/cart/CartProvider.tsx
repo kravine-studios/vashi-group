@@ -48,7 +48,7 @@ function mapOrders(
     quantity: number;
     line_total: number;
   }[],
-  wholesalers: Map<string, { name: string; shopNumber: string; contactName: string; contactPhone: string }>,
+  wholesalers: Map<string, { name: string; shopNumber: string | null; contactName: string; contactPhone: string }>,
   retailer: OrderSummary['retailer'],
   transportByOrder: Map<string, OrderSummary['transport']>,
 ): OrderSummary[] {

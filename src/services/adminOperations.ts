@@ -23,7 +23,7 @@ export type AdminAccount = {
   role: Role;
   status: AccountStatus;
   businessName: string;
-  shopNumber: string;
+  shopNumber: string | null;
   gstNumber: string;
   fssaiNumber: string;
   contactName: string;
