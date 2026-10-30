@@ -136,7 +136,7 @@ export type Database = {
         payment_method: 'online' | 'cod';
         payment_status: 'pending' | 'pending_cod' | 'paid' | 'failed' | 'refunded';
         fulfilment_method: 'truck_slot' | 'self_pickup';
-        status: 'pending_payment' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
+        status: 'pending_payment' | 'placed' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
         pickup_token: string | null;
         transport_slot_id: string | null;
         subtotal: number;
@@ -149,7 +149,7 @@ export type Database = {
         payment_method: 'online' | 'cod';
         payment_status: 'pending' | 'pending_cod' | 'paid' | 'failed' | 'refunded';
         fulfilment_method: 'truck_slot' | 'self_pickup';
-        status: 'pending_payment' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
+        status: 'pending_payment' | 'placed' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
         pickup_token?: string | null;
         transport_slot_id?: string | null;
         subtotal: number;
@@ -161,7 +161,7 @@ export type Database = {
         id: string;
         order_id: string;
         wholesaler_id: string;
-        status: 'pending_payment' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
+        status: 'pending_payment' | 'placed' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
         amount: number;
         created_at: string;
         updated_at: string;
@@ -169,7 +169,7 @@ export type Database = {
         id?: string;
         order_id: string;
         wholesaler_id: string;
-        status?: 'pending_payment' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
+        status?: 'pending_payment' | 'placed' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
         amount: number;
         created_at?: string;
         updated_at?: string;
@@ -411,7 +411,7 @@ export type Database = {
           payment_succeeded: boolean;
           idempotency_key: string;
         };
-        Returns: 'pending_payment' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
+        Returns: 'pending_payment' | 'placed' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
       };
       can_read_order: {
         Args: { target_order_id: string };
@@ -531,7 +531,7 @@ export type Database = {
       account_status: AccountStatus;
       payment_method: 'online' | 'cod';
       fulfilment_method: 'truck_slot' | 'self_pickup';
-      order_status: 'pending_payment' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
+      order_status: 'pending_payment' | 'placed' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
       order_payment_status: 'pending' | 'pending_cod' | 'paid' | 'failed' | 'refunded';
       payment_record_status: 'pending' | 'paid' | 'failed' | 'refunded';
       payout_status: 'held' | 'released' | 'cancelled';

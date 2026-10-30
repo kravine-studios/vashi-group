@@ -19,7 +19,6 @@ type SlotForm = {
   driverName: string;
   contactNumber: string;
   orderCapacity: string;
-  capacityUnit: string;
   deliveryLocation: string;
 };
 
@@ -28,8 +27,7 @@ const emptySlotForm: SlotForm = {
   availableUntil: '17:00',
   driverName: '',
   contactNumber: '',
-  orderCapacity: '1',
-  capacityUnit: 'orders',
+  orderCapacity: '',
   deliveryLocation: '',
 };
 
@@ -37,7 +35,39 @@ function dateInputValue(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function TransportSchedulePanel({ onCountChange, sectionId }: { onCountChange: (count: number) => void; sectionId?: string }) {
+function parseCapacityAndUnit(raw: string): { capacity: number; capacityUnit?: string } {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^([\d.]+)\s*(.*)$/);
+  if (match) {
+    const num = parseFloat(match[1]);
+    const unit = match[2]?.trim();
+    return {
+      capacity: Number.isFinite(num) && num > 0 ? num : 1,
+      capacityUnit: unit || undefined,
+    };
+  }
+  const anyNumMatch = trimmed.match(/([\d.]+)/);
+  if (anyNumMatch) {
+    const num = parseFloat(anyNumMatch[1]);
+    const unit = trimmed.replace(anyNumMatch[1], '').trim();
+    return {
+      capacity: Number.isFinite(num) && num > 0 ? num : 1,
+      capacityUnit: unit || undefined,
+    };
+  }
+  return {
+    capacity: 1,
+    capacityUnit: trimmed || undefined,
+  };
+}
+
+export function TransportSchedulePanel({
+  onCountChange,
+  sectionId,
+}: {
+  onCountChange: (count: number) => void;
+  sectionId?: string;
+}) {
   const { account } = useAuth();
   const [slots, setSlots] = useState<TransportSlotRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +76,6 @@ export function TransportSchedulePanel({ onCountChange, sectionId }: { onCountCh
   const [notice, setNotice] = useState<string | null>(null);
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [slotForm, setSlotForm] = useState<SlotForm>(emptySlotForm);
-  const [defaultCapacity, setDefaultCapacity] = useState(1);
   const [marketOpen, setMarketOpen] = useState('10:00');
   const defaultsLoaded = useRef(false);
 
@@ -58,8 +87,6 @@ export function TransportSchedulePanel({ onCountChange, sectionId }: { onCountCh
       const upcoming = loaded.filter((slot) => Date.parse(slot.endsAt) > Date.now());
       setSlots(upcoming);
       if (!defaultsLoaded.current) {
-        setDefaultCapacity(defaults.capacity);
-        setSlotForm((current) => ({ ...current, orderCapacity: String(defaults.capacity) }));
         setMarketOpen(defaults.marketOpen);
         defaultsLoaded.current = true;
       }
@@ -99,29 +126,50 @@ export function TransportSchedulePanel({ onCountChange, sectionId }: { onCountCh
     void runSlotAction(async () => {
       if (!slotForm.availableDate) throw new Error('Select an available date.');
       if (!slotForm.availableUntil) throw new Error('Choose the time the driver is available until.');
+
       const startsAt = new Date(`${slotForm.availableDate}T${marketOpen}`);
       const endsAt = new Date(`${slotForm.availableDate}T${slotForm.availableUntil}`);
       if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) {
         throw new Error('Choose a valid available date and an end time after the start time.');
       }
-      const capacity = Number(slotForm.orderCapacity);
-      if (!Number.isFinite(capacity) || capacity < 1 || capacity > 1000) {
-        throw new Error('Order capacity must be at least 1 and up to 1000.');
+
+      const driverTrimmed = slotForm.driverName.trim();
+      if (!driverTrimmed || !/^[a-zA-Z\s]+$/.test(driverTrimmed)) {
+        throw new Error('Driver name must contain only alphabets.');
       }
+
+      const contactTrimmed = slotForm.contactNumber.trim();
+      if (!/^\d{10}$/.test(contactTrimmed)) {
+        throw new Error('Contact number must be exactly 10 digits.');
+      }
+
+      const capacityRaw = slotForm.orderCapacity.trim();
+      if (!capacityRaw) {
+        throw new Error('Enter the order capacity (e.g. 50 bags, 10 tons, 100 orders).');
+      }
+
+      const { capacity, capacityUnit } = parseCapacityAndUnit(capacityRaw);
+      if (!Number.isFinite(capacity) || capacity < 1) {
+        throw new Error('Order capacity must include a positive amount (e.g. 50 bags, 10 tons).');
+      }
+
       const input: TransportSlotInput = {
         startsAt: startsAt.toISOString(),
         endsAt: endsAt.toISOString(),
-        driverName: slotForm.driverName,
-        contactNumber: slotForm.contactNumber,
+        driverName: driverTrimmed,
+        contactNumber: contactTrimmed,
         capacity,
+        capacityUnit,
       };
+
       if (editingSlotId) {
         await updateTransportSlot(editingSlotId, input, account.id);
       } else {
         await createTransportSlot(input, account.id);
       }
+
       setEditingSlotId(null);
-      setSlotForm({ ...emptySlotForm, orderCapacity: String(defaultCapacity) });
+      setSlotForm(emptySlotForm);
     }, editingSlotId ? 'Transport slot updated.' : 'Transport slot published.');
   };
 
@@ -133,8 +181,7 @@ export function TransportSchedulePanel({ onCountChange, sectionId }: { onCountCh
       availableUntil: new Date(slot.endsAt).toTimeString().slice(0, 5),
       driverName: slot.driverName,
       contactNumber: slot.contactNumber,
-      orderCapacity: String(slot.capacity),
-      capacityUnit: 'orders',
+      orderCapacity: `${slot.capacity}${slot.capacityUnit ? ` ${slot.capacityUnit}` : ''}`.trim(),
       deliveryLocation: '',
     });
     setError(null);
@@ -147,7 +194,7 @@ export function TransportSchedulePanel({ onCountChange, sectionId }: { onCountCh
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Transport operations</p>
           <h2 className="mt-1 text-xl font-bold">Slot schedule</h2>
-          <p className="mt-1 text-sm text-slate-500">Publish a single truck slot for the market day.</p>
+          <p className="mt-1 text-sm text-slate-500">Publish or update a truck slot for the APMC market day.</p>
         </div>
         <Button variant="secondary" size="sm" onClick={() => void loadSlots()} disabled={loading || saving}>
           <RefreshCw size={15} className="mr-2" /> Refresh
@@ -158,79 +205,171 @@ export function TransportSchedulePanel({ onCountChange, sectionId }: { onCountCh
       {notice ? <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p> : null}
 
       <div className="grid gap-5">
-        <form onSubmit={submitSingleSlot} className="space-y-3 rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center gap-2 font-semibold"><Plus size={17} /> {editingSlotId ? 'Edit truck slot' : 'Create one truck slot'}</div>
+        <form onSubmit={submitSingleSlot} className="space-y-4 rounded-xl border border-slate-200 p-4">
+          <div className="flex items-center gap-2 font-semibold">
+            <Plus size={17} /> {editingSlotId ? 'Edit truck slot' : 'Create one truck slot'}
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm font-medium text-slate-700">
               Available date
-              <input required type="date" value={slotForm.availableDate} onChange={(event) => setSlotForm((current) => ({ ...current, availableDate: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+              <input
+                required
+                type="date"
+                value={slotForm.availableDate}
+                onChange={(event) => setSlotForm((current) => ({ ...current, availableDate: event.target.value }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
             </label>
             <label className="block text-sm font-medium text-slate-700">
               Available until
-              <input required type="time" value={slotForm.availableUntil} onChange={(event) => setSlotForm((current) => ({ ...current, availableUntil: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+              <input
+                required
+                type="time"
+                value={slotForm.availableUntil}
+                onChange={(event) => setSlotForm((current) => ({ ...current, availableUntil: event.target.value }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
             </label>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm font-medium text-slate-700">
-              Driver name
-              <input required maxLength={100} value={slotForm.driverName} onChange={(event) => setSlotForm((current) => ({ ...current, driverName: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+              Driver name (alphabets only)
+              <input
+                required
+                maxLength={100}
+                placeholder="e.g. Ramesh Kumar"
+                value={slotForm.driverName}
+                onKeyDown={(event) => {
+                  if (
+                    !/^[a-zA-Z\s]$/.test(event.key) &&
+                    !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'].includes(event.key) &&
+                    !event.ctrlKey &&
+                    !event.metaKey
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+                onChange={(event) => {
+                  const filtered = event.target.value.replace(/[^a-zA-Z\s]/g, '');
+                  setSlotForm((current) => ({ ...current, driverName: filtered }));
+                }}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
             </label>
             <label className="block text-sm font-medium text-slate-700">
-              Contact number
-              <input required value={slotForm.contactNumber} onChange={(event) => setSlotForm((current) => ({ ...current, contactNumber: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+              Contact number (10 digits exact)
+              <input
+                required
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="9876543210"
+                value={slotForm.contactNumber}
+                onKeyDown={(event) => {
+                  if (
+                    !/^\d$/.test(event.key) &&
+                    !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'].includes(event.key) &&
+                    !event.ctrlKey &&
+                    !event.metaKey
+                  ) {
+                    event.preventDefault();
+                  }
+                }}
+                onChange={(event) => {
+                  const filtered = event.target.value.replace(/\D/g, '').slice(0, 10);
+                  setSlotForm((current) => ({ ...current, contactNumber: filtered }));
+                }}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm tracking-wider"
+              />
             </label>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-[1fr_150px]">
+          <div>
             <label className="block text-sm font-medium text-slate-700">
               Order capacity
-              <input required type="number" min="1" max="1000" step="1" value={slotForm.orderCapacity} onChange={(event) => setSlotForm((current) => ({ ...current, orderCapacity: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Unit
-              <select value={slotForm.capacityUnit} onChange={(event) => setSlotForm((current) => ({ ...current, capacityUnit: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 bg-white">
-                <option value="orders">Orders</option>
-                <option value="bags">Bags</option>
-                <option value="crates">Crates</option>
-                <option value="boxes">Boxes</option>
-                <option value="kg">Kg</option>
-              </select>
+              <input
+                required
+                type="text"
+                placeholder="e.g. 50 bags, 10 tons, 100 orders"
+                value={slotForm.orderCapacity}
+                onChange={(event) => setSlotForm((current) => ({ ...current, orderCapacity: event.target.value }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
             </label>
           </div>
 
           <label className="block text-sm font-medium text-slate-700">
             Delivery location
-            <input required value={slotForm.deliveryLocation} onChange={(event) => setSlotForm((current) => ({ ...current, deliveryLocation: event.target.value }))} placeholder="e.g. Vashi APMC gate 3, north side" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+            <input
+              required
+              value={slotForm.deliveryLocation}
+              onChange={(event) => setSlotForm((current) => ({ ...current, deliveryLocation: event.target.value }))}
+              placeholder="e.g. Vashi APMC gate 3, north side"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
           </label>
 
-          <div className="flex gap-2">
-            <Button type="submit" disabled={saving}>{saving ? 'Saving…' : editingSlotId ? 'Save changes' : 'Publish truck slot'}</Button>
-            {editingSlotId ? <Button variant="secondary" onClick={() => { setEditingSlotId(null); setSlotForm({ ...emptySlotForm, orderCapacity: String(defaultCapacity) }); }}>Cancel</Button> : null}
+          <div className="flex gap-2 pt-1">
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving…' : editingSlotId ? 'Save changes' : 'Publish truck slot'}
+            </Button>
+            {editingSlotId ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setEditingSlotId(null);
+                  setSlotForm(emptySlotForm);
+                }}
+              >
+                Cancel
+              </Button>
+            ) : null}
           </div>
         </form>
       </div>
 
       <div className="mt-6">
-        <h3 className="mb-3 font-semibold">Published slots <span className="text-sm font-normal text-slate-500">({slots.length})</span></h3>
-        {loading ? <p className="py-5 text-center text-sm text-slate-500">Loading schedule…</p> : null}
-        {!loading && !slots.length ? <p className="rounded-xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500">No upcoming slots published.</p> : null}
-        {!loading && slots.length ? (
+        <h3 className="mb-3 font-semibold">
+          Published slots <span className="text-sm font-normal text-slate-500">({slots.length})</span>
+        </h3>
+        {!slots.length ? (
+          <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+            No upcoming truck slots are scheduled.
+          </p>
+        ) : null}
+        {slots.length ? (
           <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
             {slots.map((slot) => (
               <article key={slot.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
                   <Truck size={18} className="mt-1 shrink-0 text-emerald-700" />
                   <div>
-                    <p className="font-semibold">{new Date(slot.startsAt).toLocaleString('en-IN')} – {new Date(slot.endsAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}</p>
-                    <p className="text-sm text-slate-600">{slot.driverName} · <a href={`tel:${slot.contactNumber}`} className="hover:underline">{slot.contactNumber}</a></p>
-                    <p className="mt-1 text-xs text-slate-500">{slot.reservedCount} of {slot.capacity} orders reserved</p>
+                    <p className="font-semibold">
+                      {new Date(slot.startsAt).toLocaleString('en-IN')} –{' '}
+                      {new Date(slot.endsAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      {slot.driverName} ·{' '}
+                      <a href={`tel:${slot.contactNumber}`} className="font-mono font-medium hover:underline">
+                        {slot.contactNumber}
+                      </a>
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {slot.reservedCount} of {slot.capacity}{slot.capacityUnit ? ` ${slot.capacityUnit}` : ''} reserved
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone={slot.status === 'available' ? 'success' : slot.status === 'booked' ? 'warning' : 'danger'}>{slot.status}</Badge>
-                  <Button size="sm" variant="secondary" disabled={saving} onClick={() => editSlot(slot)}><Pencil size={14} className="mr-1" /> Edit</Button>
+                  <Badge
+                    tone={slot.status === 'available' ? 'success' : slot.status === 'booked' ? 'warning' : 'danger'}
+                  >
+                    {slot.status}
+                  </Badge>
+                  <Button size="sm" variant="secondary" disabled={saving} onClick={() => editSlot(slot)}>
+                    <Pencil size={14} className="mr-1" /> Edit
+                  </Button>
                   {slot.status !== 'booked' ? (
                     <Button
                       size="sm"

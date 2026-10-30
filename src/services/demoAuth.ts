@@ -153,6 +153,24 @@ export const demoSession = {
     localStorage.setItem(adminAuditKey, JSON.stringify([event, ...audit]));
   },
 
+  deleteAccount(id: string): void {
+    const accounts = readAccounts();
+    const user = accounts.find((record) => record.id === id);
+    if (!user || user.account.role === 'super_admin') {
+      throw new Error('This account cannot be deleted.');
+    }
+    const filtered = accounts.filter((record) => record.id !== id);
+    writeAccounts(filtered);
+    const savedAudit = localStorage.getItem(adminAuditKey);
+    const audit = savedAudit ? (JSON.parse(savedAudit) as DemoAdminAudit[]) : [];
+    const event: DemoAdminAudit = {
+      action: 'account_deleted',
+      details: { userId: id, email: user.email, businessName: user.account.businessName },
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem(adminAuditKey, JSON.stringify([event, ...(Array.isArray(audit) ? audit : [])]));
+  },
+
   recordAdminAudit(action: string, details: Record<string, unknown>): void {
     const savedAudit = localStorage.getItem(adminAuditKey);
     const audit = savedAudit ? JSON.parse(savedAudit) as DemoAdminAudit[] : [];

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { formatCurrency } from '../lib/formatters';
 import {
   listAdminAccounts,
@@ -7,6 +8,7 @@ import {
   listAdminSettings,
   listAdminMasterData,
   countAdminOrdersToday,
+  deleteAdminAccount,
   setAdminAccountStatus,
   updateCategoryGstRate,
   updateAdminSetting,
@@ -166,7 +168,7 @@ function OrdersPanel({ orders, hasMore, loadingMore, onLoadMore }: { orders: Adm
         <label className="text-sm font-medium">Order status
           <select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-1 block rounded-xl border border-slate-300 bg-white px-3 py-2">
             <option value="">All statuses</option>
-            <option value="pending_payment">Pending payment</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option><option value="expired">Expired</option><option value="cancelled">Cancelled</option>
+            <option value="pending_payment">Pending payment</option><option value="placed">Placed (Awaiting Pickup)</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option><option value="expired">Expired</option><option value="cancelled">Cancelled</option>
           </select>
         </label>
         <span className="pb-2 text-xs text-slate-500">Showing {orders.length} recent orders</span>
@@ -190,7 +192,9 @@ function OrderCard({ order }: { order: AdminOrder }) {
           <p className="mt-1 text-xs text-slate-500">{new Date(order.createdAt).toLocaleString('en-IN')} · {order.paymentMethod.toUpperCase()} · {order.paymentStatus.replace('_', ' ')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge tone={order.status === 'completed' ? 'success' : order.status === 'cancelled' || order.status === 'expired' ? 'danger' : 'warning'}>{order.status.replace('_', ' ')}</Badge>
+          <Badge tone={order.status === 'completed' || order.status === 'confirmed' ? 'success' : order.status === 'placed' ? 'info' : order.status === 'cancelled' || order.status === 'expired' ? 'danger' : 'warning'}>
+            {order.status === 'placed' ? 'Placed' : order.status.replace('_', ' ')}
+          </Badge>
           <span className="font-bold">{formatCurrency(order.subtotal)}</span>
         </div>
       </summary>
@@ -256,7 +260,29 @@ function AccountsPanel({
                       </label>
                       <Button size="sm" variant="danger" disabled={savingId === account.id || (reason[account.id] ?? '').trim().length < 5} onClick={() => void runAction(account.id, () => setAdminAccountStatus(account, 'suspended', reason[account.id] ?? ''), 'Account suspended.')}>Suspend</Button>
                     </>
-                  ) : <Button size="sm" disabled={savingId === account.id} onClick={() => void runAction(account.id, () => setAdminAccountStatus(account, 'approved', ''), 'Account reinstated.')}>Reinstate</Button>}
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        disabled={savingId === account.id}
+                        onClick={() => void runAction(account.id, () => setAdminAccountStatus(account, 'approved', ''), 'Account reinstated.')}
+                      >
+                        Reinstate
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={savingId === account.id}
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to permanently delete the account for "${account.businessName}" (${account.email})? This action cannot be undone.`)) {
+                            void runAction(account.id, () => deleteAdminAccount(account), 'Account permanently deleted.');
+                          }
+                        }}
+                      >
+                        <Trash2 size={13} className="mr-1" /> Delete
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </article>

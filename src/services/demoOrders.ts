@@ -44,7 +44,7 @@ export type OrderContact = {
 export type OrderSummary = {
   id: string;
   createdAt: string;
-  status: 'pending_payment' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
+  status: 'pending_payment' | 'placed' | 'confirmed' | 'expired' | 'cancelled' | 'completed';
   paymentMethod: 'online' | 'cod';
   paymentStatus: 'pending' | 'pending_cod' | 'paid' | 'failed' | 'refunded';
   fulfilmentMethod: 'truck_slot' | 'self_pickup';
@@ -122,7 +122,7 @@ function makePickupToken(orders: OrderSummary[]) {
   }
 }
 
-function releaseExpiredOrders(retailerId: string, orders: OrderSummary[], products: Product[]) {
+function releaseExpiredOrders(retailerId: string, orders: OrderSummary[], _products: Product[]) {
   const now = Date.now();
   const expired = orders.filter((order) =>
     order.status === 'pending_payment'
@@ -131,22 +131,9 @@ function releaseExpiredOrders(retailerId: string, orders: OrderSummary[], produc
   );
   if (!expired.length) return { orders, stockReleased: false };
 
-  const restoredQuantities = new Map<string, number>();
   for (const order of expired) {
     if (order.transport) releaseDemoTransportSlot(order.transport.id);
-    for (const subOrder of order.subOrders) {
-      for (const item of subOrder.items) {
-        restoredQuantities.set(item.productId, (restoredQuantities.get(item.productId) ?? 0) + item.quantity);
-      }
-    }
   }
-  const savedProducts = localStorage.getItem(demoProductsKey);
-  const currentProducts = savedProducts ? JSON.parse(savedProducts) as Product[] : products;
-  const restoredProducts = currentProducts.map((product) => ({
-    ...product,
-    stock: product.stock + (restoredQuantities.get(product.id) ?? 0),
-  }));
-  localStorage.setItem(demoProductsKey, JSON.stringify(restoredProducts));
 
   const expiredIds = new Set(expired.map((order) => order.id));
   const updatedOrders = orders.map((order) => expiredIds.has(order.id)
@@ -226,7 +213,7 @@ export function createDemoOrder(
         id: crypto.randomUUID(),
         wholesalerId: product.wholesalerId,
         wholesalerName: product.wholesalerName,
-        status: paymentMethod === 'cod' ? 'confirmed' : 'pending_payment',
+        status: paymentMethod === 'cod' ? 'placed' : 'pending_payment',
         amount: line.lineTotal,
         wholesalerShopNumber: wholesalers.find((seller) => seller.id === product.wholesalerId)?.shopNumber ?? null,
         wholesalerContactName: wholesalers.find((seller) => seller.id === product.wholesalerId)?.contactName ?? null,
@@ -243,7 +230,7 @@ export function createDemoOrder(
   const order: OrderSummary = {
     id: crypto.randomUUID(),
     createdAt,
-    status: paymentMethod === 'cod' ? 'confirmed' : 'pending_payment',
+    status: paymentMethod === 'cod' ? 'placed' : 'pending_payment',
     paymentMethod,
     paymentStatus: paymentMethod === 'cod' ? 'pending_cod' : 'pending',
     fulfilmentMethod,
@@ -268,26 +255,21 @@ export function createDemoOrder(
     subOrders: [...sellerMap.values()],
   };
 
-  const quantities = new Map(cartLines.map((line) => [line.productId, line.quantity]));
-  const updatedProducts = currentProducts.map((product) => ({
-    ...product,
-    stock: product.stock - (quantities.get(product.id) ?? 0),
-  }));
+  // NOTE: Inventory is NOT deducted at order placement time; it stays the same until wholesaler confirms pickup.
   try {
-    localStorage.setItem(demoProductsKey, JSON.stringify(updatedProducts));
     saveOrders(account.id, [order, ...orders]);
   } catch (saveError) {
     if (reservedSlot) releaseDemoTransportSlot(reservedSlot.id);
-    if (savedProducts) localStorage.setItem(demoProductsKey, savedProducts);
-    else localStorage.removeItem(demoProductsKey);
     throw saveError;
   }
+
+  // 1. Notify wholesalers
   for (const subOrder of order.subOrders) {
     addDemoNotification(
       subOrder.wholesalerId,
       'new_order',
       'New order received',
-      `${account.businessName}, Shop ${account.shopNumber} has placed an order of ₹${subOrder.amount.toLocaleString('en-IN')}.`,
+      `${account.businessName}, Shop ${account.shopNumber} has placed an order of ₹${subOrder.amount.toLocaleString('en-IN')}. Pickup confirmation required before release.`,
       { order_id: order.id, sub_order_id: subOrder.id },
     );
     if (order.transport) {
@@ -300,6 +282,16 @@ export function createDemoOrder(
       );
     }
   }
+
+  // 2. Notify admin when order is placed by retailer
+  addDemoNotification(
+    'demo-admin',
+    'order_placed',
+    'New wholesale order placed',
+    `Retailer ${account.businessName} has placed order #${order.id.slice(0, 8).toUpperCase()} for ₹${order.subtotal.toLocaleString('en-IN')} (${order.fulfilmentMethod === 'truck_slot' ? 'Truck Delivery' : 'Self-Pickup'}).`,
+    { order_id: order.id, retailer_id: account.id },
+  );
+
   if (order.transport) {
     addDemoNotification('demo-admin', 'transport_slot_booked', 'Transport slot booked', `A truck slot was booked for order ${order.id.slice(0, 8).toUpperCase()}.`, { order_id: order.id });
     addDemoNotification(account.id, 'transport_slot_booked', 'Truck slot booked', `Your slot is ${new Date(order.transport.startsAt).toLocaleString('en-IN')} with ${order.transport.driverName} (${order.transport.contactNumber}).`, { order_id: order.id });
@@ -320,30 +312,17 @@ export function completeDemoPayment(retailerId: string, orderId: string, succeed
   const paymentCompleted = succeeded && reservationActive;
 
   if (!paymentCompleted) {
-    const savedProducts = localStorage.getItem(demoProductsKey);
-    if (!savedProducts) throw new Error('Product stock could not be restored for the failed demo payment.');
-    const products = JSON.parse(savedProducts) as Product[];
-    const restoredQuantities = new Map<string, number>();
-    for (const subOrder of order.subOrders) {
-      for (const item of subOrder.items) {
-        restoredQuantities.set(item.productId, (restoredQuantities.get(item.productId) ?? 0) + item.quantity);
-      }
-    }
-    localStorage.setItem(demoProductsKey, JSON.stringify(products.map((product) => ({
-      ...product,
-      stock: product.stock + (restoredQuantities.get(product.id) ?? 0),
-    }))));
     if (order.transport) releaseDemoTransportSlot(order.transport.id);
   }
 
   const updatedOrder: OrderSummary = {
     ...order,
-    status: paymentCompleted ? 'confirmed' : 'expired',
+    status: paymentCompleted ? 'placed' : 'expired',
     paymentStatus: paymentCompleted ? 'paid' : 'failed',
     reservationExpiresAt: null,
     subOrders: order.subOrders.map((subOrder) => ({
       ...subOrder,
-      status: paymentCompleted ? 'confirmed' : 'expired',
+      status: paymentCompleted ? 'placed' : 'expired',
     })),
   };
   saveOrders(retailerId, orders.map((candidate) => candidate.id === orderId ? updatedOrder : candidate));
@@ -354,6 +333,18 @@ export function completeDemoPayment(retailerId: string, orderId: string, succeed
     `Your order status is now ${updatedOrder.status.replace('_', ' ')}.`,
     { order_id: orderId, status: updatedOrder.status },
   );
+
+  // Send separate notification to admin when online order payment is completed & placed
+  if (paymentCompleted) {
+    addDemoNotification(
+      'demo-admin',
+      'order_placed',
+      'New wholesale order paid & placed',
+      `Payment received for order #${order.id.slice(0, 8).toUpperCase()} (₹${order.subtotal.toLocaleString('en-IN')}) from ${order.retailer.businessName}.`,
+      { order_id: order.id, retailer_id: retailerId },
+    );
+  }
+
   return updatedOrder;
 }
 
@@ -405,4 +396,108 @@ export function verifyDemoPickupToken(
     orderStatus: order.orderStatus,
     subOrderStatus: order.subOrder.status,
   };
+}
+
+/**
+ * Confirms that goods pickup has been done by retailer/driver.
+ * 1. Updates sub-order status from 'placed' to 'confirmed'.
+ * 2. Updates main order status to 'confirmed' if all sub-orders are confirmed.
+ * 3. DEDUCTS product inventory from storage at this exact pickup moment.
+ * 4. Sends separate notifications to admin and retailer.
+ */
+export function confirmDemoSubOrderPickup(
+  wholesalerId: string,
+  orderId: string,
+  subOrderId: string,
+): { order: OrderSummary; subOrder: OrderSubOrder } {
+  let targetRetailerId = '';
+  let targetOrder: OrderSummary | null = null;
+  let targetSubOrder: OrderSubOrder | null = null;
+  let targetOrders: OrderSummary[] = [];
+
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(demoOrderPrefix)) {
+      const retailerId = key.slice(demoOrderPrefix.length);
+      const orders = readOrders(retailerId);
+      const order = orders.find((o) => o.id === orderId);
+      if (order) {
+        const sub = order.subOrders.find((s) => s.id === subOrderId && s.wholesalerId === wholesalerId);
+        if (sub) {
+          targetRetailerId = retailerId;
+          targetOrder = order;
+          targetSubOrder = sub;
+          targetOrders = orders;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!targetOrder || !targetSubOrder || !targetRetailerId) {
+    throw new Error('Matching sub-order was not found for this wholesale stall.');
+  }
+
+  if (targetSubOrder.status === 'confirmed' || targetSubOrder.status === 'completed') {
+    return { order: targetOrder, subOrder: targetSubOrder };
+  }
+
+  // 1. Mark sub-order as confirmed
+  targetSubOrder.status = 'confirmed';
+
+  // If COD, mark paid upon pickup
+  if (targetOrder.paymentMethod === 'cod') {
+    targetOrder.paymentStatus = 'paid';
+  }
+
+  // 2. If all sub-orders are confirmed, update the main order status as well
+  const allConfirmed = targetOrder.subOrders.every((s) => s.status === 'confirmed' || s.status === 'completed');
+  if (allConfirmed) {
+    targetOrder.status = 'confirmed';
+  }
+
+  // 3. Deduct product stock from kirana-demo-products NOW (at time of pickup!)
+  const savedProducts = localStorage.getItem(demoProductsKey);
+  if (savedProducts) {
+    try {
+      const prods = JSON.parse(savedProducts) as Product[];
+      const itemQtyMap = new Map(targetSubOrder.items.map((i) => [i.productId, i.quantity]));
+      const updatedProds = prods.map((prod) => {
+        const qty = itemQtyMap.get(prod.id) ?? 0;
+        if (qty > 0) {
+          return {
+            ...prod,
+            stock: Math.max(0, prod.stock - qty),
+          };
+        }
+        return prod;
+      });
+      localStorage.setItem(demoProductsKey, JSON.stringify(updatedProds));
+    } catch {
+      // fallback
+    }
+  }
+
+  // 4. Save updated orders back to storage
+  saveOrders(targetRetailerId, targetOrders);
+
+  // 5. Send separate notification to admin when pickup is done from wholesaler
+  addDemoNotification(
+    'demo-admin',
+    'pickup_confirmed',
+    'Order pickup completed',
+    `Wholesaler ${targetSubOrder.wholesalerName} confirmed pickup of order #${targetOrder.id.slice(0, 8).toUpperCase()} (₹${targetSubOrder.amount.toLocaleString('en-IN')}) for ${targetOrder.retailer.businessName}.`,
+    { order_id: targetOrder.id, sub_order_id: targetSubOrder.id },
+  );
+
+  // 6. Send notification to retailer
+  addDemoNotification(
+    targetRetailerId,
+    'pickup_confirmed',
+    'Goods picked up from stall',
+    `Your goods from ${targetSubOrder.wholesalerName} for order #${targetOrder.id.slice(0, 8).toUpperCase()} have been confirmed and released.`,
+    { order_id: targetOrder.id, sub_order_id: targetSubOrder.id },
+  );
+
+  return { order: targetOrder, subOrder: targetSubOrder };
 }

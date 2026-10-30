@@ -240,6 +240,15 @@ export async function setAdminAccountStatus(
   demoSession.setAccountStatus(account.id, status, reason);
 }
 
+export async function deleteAdminAccount(account: AdminAccount) {
+  if (supabase) {
+    const { error } = await supabase.from('profiles').delete().eq('id', account.id);
+    if (error) throw error;
+    return;
+  }
+  demoSession.deleteAccount(account.id);
+}
+
 export async function listAdminSettings(): Promise<AdminSetting[]> {
   if (!supabase) {
     const saved = localStorage.getItem(demoSettingsKey);

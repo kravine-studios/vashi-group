@@ -9,6 +9,7 @@ export type TransportSlotRecord = {
   contactNumber: string;
   status: 'available' | 'booked' | 'unavailable';
   capacity: number;
+  capacityUnit?: string;
   reservedCount: number;
 };
 
@@ -18,6 +19,7 @@ export type TransportSlotInput = {
   driverName: string;
   contactNumber: string;
   capacity: number;
+  capacityUnit?: string;
 };
 
 export type BulkTransportSlotInput = {
@@ -29,6 +31,7 @@ export type BulkTransportSlotInput = {
   driverName: string;
   contactNumber: string;
   capacity: number;
+  capacityUnit?: string;
 };
 
 export type TransportScheduleDefaults = {
@@ -41,6 +44,7 @@ export type TransportScheduleDefaults = {
 
 const demoSlotsKey = 'kirana-demo-transport-slots';
 const demoAuditKey = 'kirana-demo-transport-audit';
+
 export async function getTransportScheduleDefaults(): Promise<TransportScheduleDefaults> {
   const defaults: TransportScheduleDefaults = {
     capacity: 1,
@@ -58,17 +62,30 @@ export async function getTransportScheduleDefaults(): Promise<TransportScheduleD
       marketClose: String(saved.get('market_close_time') ?? defaults.marketClose),
       slotLengthMinutes: Number(saved.get('slot_length_minutes') ?? defaults.slotLengthMinutes),
     };
-    if (!Number.isInteger(config.capacity) || config.capacity < 1 || config.capacity > 100
-      || !Number.isInteger(config.publishDaysAhead) || config.publishDaysAhead < 0 || config.publishDaysAhead > 30
-      || !Number.isInteger(config.slotLengthMinutes) || config.slotLengthMinutes < 15 || config.slotLengthMinutes > 720
-      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(config.marketOpen)
-      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(config.marketClose)
-      || config.marketOpen >= config.marketClose) {
+    if (
+      !Number.isInteger(config.capacity) ||
+      config.capacity < 1 ||
+      !Number.isInteger(config.publishDaysAhead) ||
+      config.publishDaysAhead < 0 ||
+      config.publishDaysAhead > 30 ||
+      !Number.isInteger(config.slotLengthMinutes) ||
+      config.slotLengthMinutes < 15 ||
+      config.slotLengthMinutes > 720 ||
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(config.marketOpen) ||
+      !/^([01]\d|2[0-3]):[0-5]\d$/.test(config.marketClose) ||
+      config.marketOpen >= config.marketClose
+    ) {
       throw new Error('Demo transport schedule settings are not configured correctly.');
     }
     return config;
   }
-  const keys = ['slot_default_capacity', 'slot_publish_days_ahead', 'market_open_time', 'market_close_time', 'slot_length_minutes'];
+  const keys = [
+    'slot_default_capacity',
+    'slot_publish_days_ahead',
+    'market_open_time',
+    'market_close_time',
+    'slot_length_minutes',
+  ];
   const { data, error } = await supabase.from('app_settings').select('key, value').in('key', keys);
   if (error) throw error;
   const settings = new Map(data.map((setting) => [setting.key, setting.value]));
@@ -77,9 +94,16 @@ export async function getTransportScheduleDefaults(): Promise<TransportScheduleD
   const slotLength = Number(settings.get('slot_length_minutes') ?? defaults.slotLengthMinutes);
   const marketOpen = settings.get('market_open_time');
   const marketClose = settings.get('market_close_time');
-  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 100
-    || !Number.isInteger(days) || days < 0 || days > 30
-    || !Number.isInteger(slotLength) || slotLength < 15 || slotLength > 720) {
+  if (
+    !Number.isInteger(capacity) ||
+    capacity < 1 ||
+    !Number.isInteger(days) ||
+    days < 0 ||
+    days > 30 ||
+    !Number.isInteger(slotLength) ||
+    slotLength < 15 ||
+    slotLength > 720
+  ) {
     throw new Error('Transport schedule defaults are not configured correctly.');
   }
   return {
@@ -98,7 +122,10 @@ function readDemoSlots(): TransportSlotRecord[] {
   if (!Array.isArray(parsed)) {
     throw new Error('Saved demo transport slots are invalid. Clear the kirana-demo-transport-slots browser storage key.');
   }
-  return parsed as TransportSlotRecord[];
+  return (parsed as TransportSlotRecord[]).map((slot) => ({
+    ...slot,
+    capacityUnit: slot.capacityUnit ?? 'orders',
+  }));
 }
 
 function writeDemoSlots(slots: TransportSlotRecord[]) {
@@ -109,10 +136,10 @@ function recordDemoAudit(actorId: string, action: string, details: Record<string
   const saved = localStorage.getItem(demoAuditKey);
   const parsed: unknown = saved ? JSON.parse(saved) : [];
   if (!Array.isArray(parsed)) throw new Error('Saved demo transport audit log is invalid.');
-  localStorage.setItem(demoAuditKey, JSON.stringify([
-    { actorId, action, details, createdAt: new Date().toISOString() },
-    ...parsed,
-  ]));
+  localStorage.setItem(
+    demoAuditKey,
+    JSON.stringify([{ actorId, action, details, createdAt: new Date().toISOString() }, ...parsed]),
+  );
 }
 
 function validateSlotInput(input: TransportSlotInput, maxDaysAhead?: number) {
@@ -127,11 +154,14 @@ function validateSlotInput(input: TransportSlotInput, maxDaysAhead?: number) {
     publishLimit.setHours(23, 59, 59, 999);
     if (startsAt > publishLimit.getTime()) throw new Error(`Choose a slot within the next ${maxDaysAhead} days.`);
   }
-  if (!input.driverName.trim() || !/^[+0-9][0-9+() -]{5,19}$/.test(input.contactNumber.trim())) {
-    throw new Error('Enter a truck or driver name and a valid contact number.');
+  if (!input.driverName.trim() || !/^[a-zA-Z\s]+$/.test(input.driverName.trim())) {
+    throw new Error('Driver name must contain only alphabets.');
   }
-  if (!Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > 100) {
-    throw new Error('Slot capacity must be between 1 and 100 orders.');
+  if (!/^\d{10}$/.test(input.contactNumber.trim())) {
+    throw new Error('Contact number must be exactly 10 digits.');
+  }
+  if (!Number.isFinite(input.capacity) || input.capacity < 1) {
+    throw new Error('Order capacity must be at least 1.');
   }
 }
 
@@ -152,6 +182,7 @@ export async function listTransportSlots(): Promise<TransportSlotRecord[]> {
     contactNumber: slot.contact_number,
     status: slot.status,
     capacity: slot.capacity,
+    capacityUnit: 'orders',
     reservedCount: slot.reserved_count,
   }));
 }
@@ -163,9 +194,9 @@ export async function createTransportSlot(input: TransportSlotInput, actorId: st
     const { error } = await supabase.rpc('admin_create_transport_slot', {
       starts_at_input: input.startsAt,
       ends_at_input: input.endsAt,
-      driver_name_input: input.driverName,
-      contact_number_input: input.contactNumber,
-      capacity_input: input.capacity,
+      driver_name_input: input.driverName.trim(),
+      contact_number_input: input.contactNumber.trim(),
+      capacity_input: Math.round(input.capacity),
     });
     if (error) throw error;
     return;
@@ -182,10 +213,15 @@ export async function createTransportSlot(input: TransportSlotInput, actorId: st
     contactNumber: input.contactNumber.trim(),
     status: 'available',
     capacity: input.capacity,
+    capacityUnit: input.capacityUnit?.trim() || 'orders',
     reservedCount: 0,
   });
   writeDemoSlots(slots);
-  recordDemoAudit(actorId, 'transport_slot_created', { startsAt: input.startsAt, capacity: input.capacity });
+  recordDemoAudit(actorId, 'transport_slot_created', {
+    startsAt: input.startsAt,
+    capacity: input.capacity,
+    capacityUnit: input.capacityUnit,
+  });
 }
 
 export async function bulkCreateTransportSlots(input: BulkTransportSlotInput, actorId: string) {
@@ -204,15 +240,13 @@ export async function bulkCreateTransportSlots(input: BulkTransportSlotInput, ac
     today.setHours(0, 0, 0, 0);
     const lastPublishDate = new Date(today);
     lastPublishDate.setDate(lastPublishDate.getDate() + publishDaysAhead);
-    if (!isValidDate(input.startDate, start) || !isValidDate(input.endDate, end)
-      || start < today || end < start || end > lastPublishDate) {
+    if (!isValidDate(input.startDate, start) || !isValidDate(input.endDate, end) || start < today || end < start || end > lastPublishDate) {
       throw new Error(`Choose dates within the next ${publishDaysAhead} days.`);
     }
     if (!Number.isInteger(input.slotLengthMinutes) || input.slotLengthMinutes < 15 || input.slotLengthMinutes > 720) {
       throw new Error('Slot length must be between 15 and 720 minutes.');
     }
-    if (!timePattern.test(input.marketOpen) || !timePattern.test(input.marketClose)
-      || input.marketClose <= input.marketOpen) {
+    if (!timePattern.test(input.marketOpen) || !timePattern.test(input.marketClose) || input.marketClose <= input.marketOpen) {
       throw new Error('Enter valid market opening and closing times.');
     }
     validateDriverAndCapacity(input);
@@ -238,6 +272,7 @@ export async function bulkCreateTransportSlots(input: BulkTransportSlotInput, ac
             contactNumber: input.contactNumber.trim(),
             status: 'available',
             capacity: input.capacity,
+            capacityUnit: input.capacityUnit?.trim() || 'orders',
             reservedCount: 0,
           });
           createdCount += 1;
@@ -247,7 +282,11 @@ export async function bulkCreateTransportSlots(input: BulkTransportSlotInput, ac
     }
     if (!createdCount) throw new Error('No new future transport slots were created.');
     writeDemoSlots(nextSlots);
-    recordDemoAudit(actorId, 'transport_slots_bulk_created', { startDate: input.startDate, endDate: input.endDate, createdCount });
+    recordDemoAudit(actorId, 'transport_slots_bulk_created', {
+      startDate: input.startDate,
+      endDate: input.endDate,
+      createdCount,
+    });
     return createdCount;
   }
 
@@ -257,9 +296,9 @@ export async function bulkCreateTransportSlots(input: BulkTransportSlotInput, ac
     market_open_input: input.marketOpen,
     market_close_input: input.marketClose,
     slot_length_minutes_input: input.slotLengthMinutes,
-    driver_name_input: input.driverName,
-    contact_number_input: input.contactNumber,
-    capacity_input: input.capacity,
+    driver_name_input: input.driverName.trim(),
+    contact_number_input: input.contactNumber.trim(),
+    capacity_input: Math.round(input.capacity),
   });
   if (error) throw error;
   return data;
@@ -273,9 +312,9 @@ export async function updateTransportSlot(slotId: string, input: TransportSlotIn
       slot_id_input: slotId,
       starts_at_input: input.startsAt,
       ends_at_input: input.endsAt,
-      driver_name_input: input.driverName,
-      contact_number_input: input.contactNumber,
-      capacity_input: input.capacity,
+      driver_name_input: input.driverName.trim(),
+      contact_number_input: input.contactNumber.trim(),
+      capacity_input: Math.round(input.capacity),
     });
     if (error) throw error;
     return;
@@ -284,28 +323,50 @@ export async function updateTransportSlot(slotId: string, input: TransportSlotIn
   const existing = slots.find((slot) => slot.id === slotId);
   if (!existing) throw new Error('Transport slot not found.');
   if (input.capacity < existing.reservedCount) throw new Error('Capacity cannot be lower than existing bookings.');
-  if (slots.some((slot) => slot.id !== slotId && slot.startsAt === input.startsAt && slot.driverName === input.driverName.trim())) {
+  if (
+    slots.some(
+      (slot) => slot.id !== slotId && slot.startsAt === input.startsAt && slot.driverName === input.driverName.trim(),
+    )
+  ) {
     throw new Error('This driver already has a slot at that time.');
   }
-  const updated: TransportSlotRecord[] = slots.map((slot) => slot.id === slotId ? {
-    ...slot,
-    startsAt: input.startsAt,
-    endsAt: input.endsAt,
-    driverName: input.driverName.trim(),
-    contactNumber: input.contactNumber.trim(),
-    capacity: input.capacity,
-    status: slot.status === 'unavailable' ? slot.status : existing.reservedCount >= input.capacity ? 'booked' : 'available',
-  } : slot);
+  const updated: TransportSlotRecord[] = slots.map((slot) =>
+    slot.id === slotId
+      ? {
+          ...slot,
+          startsAt: input.startsAt,
+          endsAt: input.endsAt,
+          driverName: input.driverName.trim(),
+          contactNumber: input.contactNumber.trim(),
+          capacity: input.capacity,
+          capacityUnit: input.capacityUnit?.trim() || slot.capacityUnit || 'orders',
+          status:
+            slot.status === 'unavailable'
+              ? slot.status
+              : existing.reservedCount >= input.capacity
+                ? 'booked'
+                : 'available',
+        }
+      : slot,
+  );
   writeDemoSlots(updated);
-  recordDemoAudit(actorId, 'transport_slot_updated', { slotId, startsAt: input.startsAt, capacity: input.capacity });
+  recordDemoAudit(actorId, 'transport_slot_updated', {
+    slotId,
+    startsAt: input.startsAt,
+    capacity: input.capacity,
+    capacityUnit: input.capacityUnit,
+  });
 }
 
 function validateDriverAndCapacity(input: Pick<TransportSlotInput, 'driverName' | 'contactNumber' | 'capacity'>) {
-  if (!input.driverName.trim() || !/^[+0-9][0-9+() -]{5,19}$/.test(input.contactNumber.trim())) {
-    throw new Error('Enter a truck or driver name and a valid contact number.');
+  if (!input.driverName.trim() || !/^[a-zA-Z\s]+$/.test(input.driverName.trim())) {
+    throw new Error('Driver name must contain only alphabets.');
   }
-  if (!Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > 100) {
-    throw new Error('Slot capacity must be between 1 and 100 orders.');
+  if (!/^\d{10}$/.test(input.contactNumber.trim())) {
+    throw new Error('Contact number must be exactly 10 digits.');
+  }
+  if (!Number.isFinite(input.capacity) || input.capacity < 1) {
+    throw new Error('Order capacity must be at least 1.');
   }
 }
 
@@ -323,10 +384,16 @@ export async function setTransportSlotUnavailable(slotId: string, unavailable: b
   if (!existing) throw new Error('Transport slot not found.');
   if (unavailable && existing.reservedCount > 0) throw new Error('A slot with existing bookings cannot be marked unavailable.');
   if (!unavailable && Date.parse(existing.startsAt) <= Date.now()) throw new Error('A past or ongoing slot cannot be made available.');
-  writeDemoSlots(slots.map((slot) => slot.id === slotId ? {
-    ...slot,
-    status: unavailable ? 'unavailable' : slot.reservedCount >= slot.capacity ? 'booked' : 'available',
-  } : slot));
+  writeDemoSlots(
+    slots.map((slot) =>
+      slot.id === slotId
+        ? {
+            ...slot,
+            status: unavailable ? 'unavailable' : slot.reservedCount >= slot.capacity ? 'booked' : 'available',
+          }
+        : slot,
+    ),
+  );
   recordDemoAudit(actorId, unavailable ? 'transport_slot_unavailable' : 'transport_slot_published', { slotId });
 }
 
@@ -344,7 +411,7 @@ export function reserveDemoTransportSlot(slotId: string) {
   }
   const updated = { ...slot, reservedCount: slot.reservedCount + 1 };
   updated.status = updated.reservedCount >= updated.capacity ? 'booked' : 'available';
-  writeDemoSlots(slots.map((candidate) => candidate.id === slotId ? updated : candidate));
+  writeDemoSlots(slots.map((candidate) => (candidate.id === slotId ? updated : candidate)));
   return updated;
 }
 
@@ -353,9 +420,20 @@ export function releaseDemoTransportSlot(slotId: string) {
   const slot = slots.find((candidate) => candidate.id === slotId);
   if (!slot) return;
   const reservedCount = Math.max(0, slot.reservedCount - 1);
-  writeDemoSlots(slots.map((candidate) => candidate.id === slotId ? {
-    ...candidate,
-    reservedCount,
-    status: candidate.status === 'unavailable' ? 'unavailable' : reservedCount >= candidate.capacity ? 'booked' : 'available',
-  } : candidate));
+  writeDemoSlots(
+    slots.map((candidate) =>
+      candidate.id === slotId
+        ? {
+            ...candidate,
+            reservedCount,
+            status:
+              candidate.status === 'unavailable'
+                ? 'unavailable'
+                : reservedCount >= candidate.capacity
+                  ? 'booked'
+                  : 'available',
+          }
+        : candidate,
+    ),
+  );
 }

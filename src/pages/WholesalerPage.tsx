@@ -23,6 +23,7 @@ import { IncomingOrderModal } from '../components/IncomingOrderModal';
 import { supabase } from '../lib/env';
 import { formatCurrency } from '../lib/formatters';
 import {
+  confirmDemoSubOrderPickup,
   listDemoSellerOrders,
   verifyDemoPickupToken,
   type IncomingSubOrder,
@@ -31,9 +32,13 @@ import {
 } from '../services/demoOrders';
 import type { Product } from '../types';
 
+function scrollToSection(sectionId: string) {
+  document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 export function WholesalerPage() {
   const { account } = useAuth();
-  const { products, loading, error, deleteProduct, toggleProductActive } = useCatalog();
+  const { products, loading, error, deleteProduct, toggleProductActive, refreshCatalog } = useCatalog();
   const [editorOpen, setEditorOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -46,6 +51,17 @@ export function WholesalerPage() {
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [selectedIncoming, setSelectedIncoming] = useState<IncomingSubOrder | null>(null);
+
+  const handleConfirmPickup = async (orderId: string, subOrderId: string) => {
+    if (!account) return;
+    try {
+      confirmDemoSubOrderPickup(account.id, orderId, subOrderId);
+      await Promise.all([loadIncomingOrders(), refreshCatalog()]);
+      setSelectedIncoming(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to confirm pickup.');
+    }
+  };
 
   const ownProducts = useMemo(
     () => products.filter((product) => product.wholesalerId === account?.id),
@@ -77,9 +93,9 @@ export function WholesalerPage() {
       const subOrderIds = rows.map((row) => row.sub_order_id);
       const { data: itemRows, error: itemsError } = subOrderIds.length
         ? await supabase
-            .from('sub_order_items')
-            .select('sub_order_id, product_id, product_name, category, grade, unit, unit_price, quantity, line_total')
-            .in('sub_order_id', subOrderIds)
+          .from('sub_order_items')
+          .select('sub_order_id, product_id, product_name, category, grade, unit, unit_price, quantity, line_total')
+          .in('sub_order_id', subOrderIds)
         : { data: [], error: null };
       if (itemsError) throw itemsError;
       const itemsBySubOrder = new Map<string, OrderLine[]>();
@@ -115,17 +131,17 @@ export function WholesalerPage() {
           },
           transport:
             row.transport_slot_id &&
-            row.transport_starts_at &&
-            row.transport_ends_at &&
-            row.transport_driver_name &&
-            row.transport_contact_number
+              row.transport_starts_at &&
+              row.transport_ends_at &&
+              row.transport_driver_name &&
+              row.transport_contact_number
               ? {
-                  id: row.transport_slot_id,
-                  startsAt: row.transport_starts_at,
-                  endsAt: row.transport_ends_at,
-                  driverName: row.transport_driver_name,
-                  contactNumber: row.transport_contact_number,
-                }
+                id: row.transport_slot_id,
+                startsAt: row.transport_starts_at,
+                endsAt: row.transport_ends_at,
+                driverName: row.transport_driver_name,
+                contactNumber: row.transport_contact_number,
+              }
               : null,
           subOrder: {
             id: row.sub_order_id,
@@ -255,18 +271,21 @@ export function WholesalerPage() {
             value={String(ownProducts.length)}
             icon={<Warehouse size={20} className="text-blue-700" />}
             bg="bg-blue-50 border-blue-200"
+            onClick={() => scrollToSection('catalogue-inventory-section')}
           />
           <StatCard
             label="In Stock Now"
             value={String(activeProducts)}
             icon={<CheckCircle2 size={20} className="text-emerald-700" />}
             bg="bg-emerald-50 border-emerald-200"
+            onClick={() => scrollToSection('catalogue-inventory-section')}
           />
           <StatCard
             label="Incoming Orders"
             value={String(incomingOrders.length)}
             icon={<PackageCheck size={20} className="text-purple-700" />}
             bg="bg-purple-50 border-purple-200"
+            onClick={() => scrollToSection('incoming-orders-section')}
           />
           <StatCard
             label="Total Inventory Value"
@@ -274,6 +293,7 @@ export function WholesalerPage() {
             icon={<Wallet size={20} className="text-amber-700" />}
             bg="bg-amber-50 border-amber-200"
             isMonospace
+            onClick={() => scrollToSection('catalogue-inventory-section')}
           />
         </div>
 
@@ -284,7 +304,7 @@ export function WholesalerPage() {
         ) : null}
 
         {/* Product Inventory Table */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs md:p-6">
+        <section id="catalogue-inventory-section" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
               <h2 className="text-lg font-bold text-slate-900">Catalogue Inventory</h2>
@@ -407,7 +427,7 @@ export function WholesalerPage() {
         </section>
 
         {/* Incoming Orders & Token Verification */}
-        <section className="mt-8 grid gap-6 xl:grid-cols-2">
+        <section id="incoming-orders-section" className="mt-8 grid gap-6 xl:grid-cols-2">
           {/* Incoming Orders List */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <div className="mb-4 flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
@@ -464,15 +484,17 @@ export function WholesalerPage() {
                       </div>
                       <Badge
                         tone={
-                          incoming.orderStatus === 'confirmed' || incoming.orderStatus === 'completed'
+                          incoming.subOrder.status === 'confirmed' || incoming.subOrder.status === 'completed'
                             ? 'success'
-                            : incoming.orderStatus === 'expired' || incoming.orderStatus === 'cancelled'
-                              ? 'danger'
-                              : 'warning'
+                            : incoming.subOrder.status === 'placed'
+                              ? 'info'
+                              : incoming.subOrder.status === 'expired' || incoming.subOrder.status === 'cancelled'
+                                ? 'danger'
+                                : 'warning'
                         }
                         dot
                       >
-                        {incoming.orderStatus.replace('_', ' ')}
+                        {incoming.subOrder.status === 'placed' ? 'Order Placed' : incoming.subOrder.status.replace('_', ' ')}
                       </Badge>
                     </div>
 
@@ -536,8 +558,19 @@ export function WholesalerPage() {
                       <p className="text-sm font-extrabold text-slate-900">{verification.retailer.businessName}</p>
                       <p className="text-xs text-slate-600">{verification.retailer.shopNumber}</p>
                     </div>
-                    <Badge tone={verification.subOrderStatus === 'confirmed' || verification.subOrderStatus === 'completed' ? 'success' : 'warning'} dot>
-                      {verification.subOrderStatus.replace('_', ' ')}
+                    <Badge
+                      tone={
+                        verification.subOrderStatus === 'confirmed' || verification.subOrderStatus === 'completed'
+                          ? 'success'
+                          : verification.subOrderStatus === 'placed'
+                            ? 'info'
+                            : 'warning'
+                      }
+                      dot
+                    >
+                      {verification.subOrderStatus === 'placed'
+                        ? 'Order Placed'
+                        : verification.subOrderStatus.replace('_', ' ')}
                     </Badge>
                   </div>
 
@@ -556,6 +589,42 @@ export function WholesalerPage() {
                       </p>
                     ) : null}
                   </div>
+
+                  {verification.subOrderStatus === 'placed' ? (
+                    <div className="mt-3.5 pt-3 border-t border-emerald-200/60 flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-xs font-semibold text-emerald-950">
+                        Retailer or vehicle at stall:
+                      </span>
+                      <Button
+                        size="sm"
+                        disabled={verifying}
+                        onClick={async () => {
+                          if (!account) return;
+                          setVerifying(true);
+                          try {
+                            confirmDemoSubOrderPickup(account.id, verification.orderId, verification.subOrderId);
+                            await Promise.all([loadIncomingOrders(), refreshCatalog()]);
+                            setVerification((current) =>
+                              current ? { ...current, subOrderStatus: 'confirmed', orderStatus: 'confirmed' } : null,
+                            );
+                          } catch (err) {
+                            setVerificationError(err instanceof Error ? err.message : 'Unable to confirm pickup.');
+                          } finally {
+                            setVerifying(false);
+                          }
+                        }}
+                        className="font-bold text-xs bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs min-h-[38px]"
+                      >
+                        <PackageCheck size={14} className="mr-1.5" />
+                        {verifying ? 'Confirming…' : 'Confirm Pickup Done & Release Goods'}
+                      </Button>
+                    </div>
+                  ) : verification.subOrderStatus === 'confirmed' || verification.subOrderStatus === 'completed' ? (
+                    <div className="mt-3.5 pt-3 border-t border-emerald-200/60 flex items-center gap-2 text-xs font-bold text-emerald-900">
+                      <CheckCircle2 size={16} className="text-emerald-700" />
+                      <span>Pickup confirmed & inventory updated</span>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </section>
@@ -581,7 +650,11 @@ export function WholesalerPage() {
         </section>
       </div>
       <ProductEditorModal open={editorOpen} product={selectedProduct} onClose={closeEditor} />
-      <IncomingOrderModal order={selectedIncoming} onClose={() => setSelectedIncoming(null)} />
+      <IncomingOrderModal
+        order={selectedIncoming}
+        onClose={() => setSelectedIncoming(null)}
+        onConfirmPickup={handleConfirmPickup}
+      />
     </main>
   );
 }
@@ -592,18 +665,24 @@ function StatCard({
   icon,
   bg,
   isMonospace = false,
+  onClick,
 }: {
   label: string;
   value: string;
   icon: ReactNode;
   bg: string;
   isMonospace?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div className={`rounded-2xl border p-4 shadow-2xs ${bg}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left rounded-2xl border p-4 shadow-2xs transition hover:-translate-y-0.5 hover:shadow-sm cursor-pointer ${bg}`}
+    >
       <div className="mb-2.5 inline-flex rounded-xl bg-white p-2 shadow-2xs">{icon}</div>
       <p className="text-xs font-bold uppercase tracking-wider text-slate-600">{label}</p>
       <p className={`mt-1 text-2xl font-black text-slate-900 ${isMonospace ? 'font-mono' : ''}`}>{value}</p>
-    </div>
+    </button>
   );
 }

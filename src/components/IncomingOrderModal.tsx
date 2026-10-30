@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Calendar,
   Check,
+  CheckCircle2,
   Clock,
   Copy,
   CreditCard,
@@ -25,11 +26,13 @@ import type { IncomingSubOrder } from '../services/demoOrders';
 type IncomingOrderModalProps = {
   order: IncomingSubOrder | null;
   onClose: () => void;
+  onConfirmPickup?: (orderId: string, subOrderId: string) => Promise<void>;
 };
 
-export function IncomingOrderModal({ order, onClose }: IncomingOrderModalProps) {
+export function IncomingOrderModal({ order, onClose, onConfirmPickup }: IncomingOrderModalProps) {
   const [copied, setCopied] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [confirmingPickup, setConfirmingPickup] = useState(false);
 
   if (!order) return null;
 
@@ -48,12 +51,15 @@ export function IncomingOrderModal({ order, onClose }: IncomingOrderModalProps) 
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const currentStatus = order.subOrder.status;
   const statusTone =
-    order.orderStatus === 'confirmed' || order.orderStatus === 'completed'
+    currentStatus === 'confirmed' || currentStatus === 'completed'
       ? 'success'
-      : order.orderStatus === 'expired' || order.orderStatus === 'cancelled'
-        ? 'danger'
-        : 'warning';
+      : currentStatus === 'placed'
+        ? 'info'
+        : currentStatus === 'expired' || currentStatus === 'cancelled'
+          ? 'danger'
+          : 'warning';
 
   const isTruckSlot = order.fulfilmentMethod === 'truck_slot' && Boolean(order.transport);
 
@@ -95,7 +101,7 @@ export function IncomingOrderModal({ order, onClose }: IncomingOrderModalProps) 
             </div>
             <div className="flex items-center gap-2">
               <Badge tone={statusTone} dot>
-                {order.orderStatus.replace('_', ' ').toUpperCase()}
+                {currentStatus === 'placed' ? 'ORDER PLACED' : currentStatus.replace('_', ' ').toUpperCase()}
               </Badge>
               <Badge tone="neutral">
                 Stall Sub-Order
@@ -370,17 +376,44 @@ export function IncomingOrderModal({ order, onClose }: IncomingOrderModalProps) 
 
         {/* Footer actions */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={handleDownloadPdf}
-            disabled={downloadingPdf}
-            className="min-h-[42px] font-bold text-xs"
-          >
-            <Download size={14} className="mr-1.5 text-slate-700" />
-            {downloadingPdf ? 'Preparing Receipt…' : 'Download Receipt (PDF)'}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="min-h-[42px] font-bold text-xs"
+            >
+              <Download size={14} className="mr-1.5 text-slate-700" />
+              {downloadingPdf ? 'Preparing Receipt…' : 'Download Receipt (PDF)'}
+            </Button>
+
+            {currentStatus === 'placed' && onConfirmPickup ? (
+              <Button
+                type="button"
+                size="md"
+                disabled={confirmingPickup}
+                onClick={async () => {
+                  setConfirmingPickup(true);
+                  try {
+                    await onConfirmPickup(order.orderId, order.subOrder.id);
+                  } finally {
+                    setConfirmingPickup(false);
+                  }
+                }}
+                className="min-h-[42px] font-bold text-xs bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs"
+              >
+                <PackageCheck size={15} className="mr-1.5" />
+                {confirmingPickup ? 'Confirming…' : 'Confirm Pickup Done'}
+              </Button>
+            ) : currentStatus === 'confirmed' || currentStatus === 'completed' ? (
+              <div className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-800">
+                <CheckCircle2 size={15} className="text-emerald-600" />
+                <span>Pickup Confirmed</span>
+              </div>
+            ) : null}
+          </div>
 
           <Button onClick={onClose} size="md" className="min-h-[42px] px-6">
             Close Order

@@ -64,9 +64,11 @@ export function RetailerOrderModal({
   const statusTone =
     order.status === 'confirmed' || order.status === 'completed'
       ? 'success'
-      : order.status === 'expired' || order.status === 'cancelled'
-        ? 'danger'
-        : 'warning';
+      : order.status === 'placed'
+        ? 'info'
+        : order.status === 'expired' || order.status === 'cancelled'
+          ? 'danger'
+          : 'warning';
 
   const isTruckSlot = order.fulfilmentMethod === 'truck_slot' && Boolean(order.transport);
 
@@ -112,7 +114,7 @@ export function RetailerOrderModal({
             </div>
             <div className="flex items-center gap-2">
               <Badge tone={statusTone} dot>
-                {order.status.replace('_', ' ').toUpperCase()}
+                {order.status === 'placed' ? 'ORDER PLACED' : order.status.replace('_', ' ').toUpperCase()}
               </Badge>
               <Badge
                 tone={

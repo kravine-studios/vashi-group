@@ -69,9 +69,11 @@ function generateReceiptHtml(data: ReceiptData): string {
   const statusColor =
     data.orderStatus === 'confirmed' || data.orderStatus === 'completed'
       ? '#059669'
-      : data.orderStatus === 'cancelled' || data.orderStatus === 'expired'
-        ? '#dc2626'
-        : '#d97706';
+      : data.orderStatus === 'placed'
+        ? '#0284c7'
+        : data.orderStatus === 'cancelled' || data.orderStatus === 'expired'
+          ? '#dc2626'
+          : '#d97706';
 
   const paymentToneColor =
     data.paymentStatus === 'paid'

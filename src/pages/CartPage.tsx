@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   CreditCard,
+  MessageSquareWarning,
   Minus,
   PackageCheck,
   Plus,
@@ -16,9 +17,8 @@ import {
 import { useCart } from '../cart/useCart';
 import { useCatalog } from '../catalog/useCatalog';
 import { Badge } from '../components/Badge';
-import { Button } from '../components/Button';
+import { Button } from './../components/Button';
 import { EmptyState } from '../components/EmptyState';
-import { DisputeSection } from '../components/DisputeSection';
 import { RetailerOrderModal } from '../components/RetailerOrderModal';
 import { formatCurrency } from '../lib/formatters';
 import type { OrderSummary } from '../services/demoOrders';
@@ -578,9 +578,11 @@ function OrderCard({
   const statusTone =
     order.status === 'confirmed' || order.status === 'completed'
       ? 'success'
-      : order.status === 'expired' || order.status === 'cancelled'
-        ? 'danger'
-        : 'warning';
+      : order.status === 'placed'
+        ? 'info'
+        : order.status === 'expired' || order.status === 'cancelled'
+          ? 'danger'
+          : 'warning';
 
   return (
     <article
@@ -588,6 +590,7 @@ function OrderCard({
       role="button"
       onClick={onSelect}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onSelect();
@@ -622,7 +625,7 @@ function OrderCard({
 
         <div className="flex items-center gap-2">
           <Badge tone={statusTone} dot>
-            {order.status.replace('_', ' ')}
+            {order.status === 'placed' ? 'Order Placed' : order.status.replace('_', ' ')}
           </Badge>
           <Button
             size="sm"
@@ -681,11 +684,18 @@ function OrderCard({
               ))}
             </ul>
             {order.status !== 'expired' && order.status !== 'cancelled' ? (
-              <div
-                className="mt-2.5 pt-2 border-t border-slate-200/60"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <DisputeSection orderId={order.id} subOrderId={subOrder.id} />
+              <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
+                <span className="text-[11px] text-slate-500">Order issue?</span>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelect();
+                  }}
+                  className="inline-flex items-center gap-1 font-bold text-amber-800 hover:text-amber-950 text-xs hover:underline cursor-pointer"
+                >
+                  <MessageSquareWarning size={12} /> Raise Dispute in Details →
+                </button>
               </div>
             ) : null}
           </div>
