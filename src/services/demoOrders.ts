@@ -122,7 +122,7 @@ function makePickupToken(orders: OrderSummary[]) {
   }
 }
 
-function releaseExpiredOrders(retailerId: string, orders: OrderSummary[], _products: Product[]) {
+function releaseExpiredOrders(retailerId: string, orders: OrderSummary[]) {
   const now = Date.now();
   const expired = orders.filter((order) =>
     order.status === 'pending_payment'
@@ -150,7 +150,7 @@ function releaseExpiredOrders(retailerId: string, orders: OrderSummary[], _produ
 
 export function listDemoOrders(retailerId: string, products: Product[]) {
   const orders = readOrders(retailerId);
-  const released = releaseExpiredOrders(retailerId, orders, products);
+  const released = releaseExpiredOrders(retailerId, orders);
   return {
     orders: released.orders.sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
     stockReleased: released.stockReleased,
@@ -176,7 +176,7 @@ export function createDemoOrder(
     throw new Error('Your cart contains a duplicate product. Remove and add it again before checkout.');
   }
 
-  const { orders } = releaseExpiredOrders(account.id, readOrders(account.id), products);
+  const { orders } = releaseExpiredOrders(account.id, readOrders(account.id));
   const savedProducts = localStorage.getItem(demoProductsKey);
   const currentProducts = savedProducts ? JSON.parse(savedProducts) as Product[] : products;
   const lines: OrderLine[] = cartLines.map(({ productId, quantity }) => {
