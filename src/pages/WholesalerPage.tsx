@@ -80,7 +80,7 @@ export function WholesalerPage() {
     setIncomingError(null);
     try {
       if (!supabase) {
-        setIncomingOrders(listDemoSellerOrders(account.id, products));
+        setIncomingOrders(listDemoSellerOrders(account.id));
         return;
       }
       const { data: rows, error: orderError } = await supabase
@@ -161,7 +161,7 @@ export function WholesalerPage() {
     } finally {
       setIncomingLoading(false);
     }
-  }, [account, products]);
+  }, [account]);
 
   useEffect(() => {
     void loadIncomingOrders();
@@ -207,7 +207,7 @@ export function WholesalerPage() {
     setVerifying(true);
     try {
       if (!supabase) {
-        setVerification(verifyDemoPickupToken(account.id, pickupToken, products));
+        setVerification(verifyDemoPickupToken(account.id, pickupToken));
       } else {
         const { data, error: tokenError } = await supabase.rpc('verify_pickup_token', {
           token_input: pickupToken.trim(),

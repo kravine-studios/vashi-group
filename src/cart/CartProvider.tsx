@@ -210,7 +210,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }, transportByOrder);
     setOrders(mappedOrders);
     return mappedOrders;
-  }, [account, products, refreshCatalog, wholesalers]);
+  }, [account, refreshCatalog, wholesalers]);
 
   useEffect(() => {
     let active = true;

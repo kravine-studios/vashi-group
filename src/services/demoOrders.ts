@@ -348,7 +348,7 @@ export function completeDemoPayment(retailerId: string, orderId: string, succeed
   return updatedOrder;
 }
 
-export function listDemoSellerOrders(wholesalerId: string, products: Product[]): IncomingSubOrder[] {
+export function listDemoSellerOrders(wholesalerId: string): IncomingSubOrder[] {
   const retailerIds: string[] = [];
   for (let index = 0; index < localStorage.length; index += 1) {
     const key = localStorage.key(index);
@@ -377,9 +377,8 @@ export function listDemoSellerOrders(wholesalerId: string, products: Product[]):
 export function verifyDemoPickupToken(
   wholesalerId: string,
   token: string,
-  products: Product[],
 ): PickupVerification {
-  const order = listDemoSellerOrders(wholesalerId, products).find((candidate) =>
+  const order = listDemoSellerOrders(wholesalerId).find((candidate) =>
     candidate.fulfilmentMethod === 'self_pickup'
     && candidate.pickupToken?.toUpperCase() === token.trim().toUpperCase()
     && candidate.orderStatus !== 'expired'
