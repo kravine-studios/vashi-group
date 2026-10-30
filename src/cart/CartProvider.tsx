@@ -143,7 +143,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return [];
     }
     if (!supabase) {
-      const demoOrderList = listDemoOrders(account.id, products);
+      const demoOrderList = listDemoOrders(account.id);
       setOrders(demoOrderList.orders);
       if (demoOrderList.stockReleased) await refreshCatalog();
       return demoOrderList.orders;

@@ -148,7 +148,7 @@ function releaseExpiredOrders(retailerId: string, orders: OrderSummary[]) {
   return { orders: updatedOrders, stockReleased: true };
 }
 
-export function listDemoOrders(retailerId: string, products: Product[]) {
+export function listDemoOrders(retailerId: string) {
   const orders = readOrders(retailerId);
   const released = releaseExpiredOrders(retailerId, orders);
   return {
@@ -355,7 +355,7 @@ export function listDemoSellerOrders(wholesalerId: string, products: Product[]):
     if (key?.startsWith(demoOrderPrefix)) retailerIds.push(key.slice(demoOrderPrefix.length));
   }
   return retailerIds.flatMap((retailerId) => {
-    const { orders } = listDemoOrders(retailerId, products);
+    const { orders } = listDemoOrders(retailerId);
     return orders.flatMap((order) => order.subOrders
       .filter((subOrder) => subOrder.wholesalerId === wholesalerId)
       .map((subOrder) => ({
